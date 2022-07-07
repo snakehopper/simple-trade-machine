@@ -5,7 +5,6 @@ import (
 	"github.com/GoogleCloudPlatform/functions-framework-go/functions"
 	"github.com/gorilla/mux"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -38,7 +37,7 @@ func validateEnv() {
 	}
 	for _, ev := range []string{"FTX_APIKEY", "FTX_SECRET"} {
 		if _, ok := os.LookupEnv(ev); !ok {
-			log.Println(ev, "not set")
+			fmt.Println(ev, "not set")
 		}
 	}
 }
@@ -74,10 +73,10 @@ func predAlert(w http.ResponseWriter, r *http.Request) {
 	case STOP_LOSS:
 		err = exch.StopLossPosition(sym)
 	default:
-		log.Println("unknown alert: ", signal)
+		fmt.Println("unknown alert: ", signal)
 	}
 	if err != nil {
-		log.Println(err.Error())
+		fmt.Println(err.Error())
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	}
 }

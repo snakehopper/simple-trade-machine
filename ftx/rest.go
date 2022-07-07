@@ -3,8 +3,8 @@ package ftx
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -49,13 +49,13 @@ func _processResponse(resp *http.Response, result interface{}) error {
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		log.Printf("Error processing response:", err)
+		fmt.Printf("Error processing response: %v\n", err)
 		return err
 	}
 	fmt.Println("<", string(body))
 	err = json.Unmarshal(body, result)
 	if err != nil {
-		log.Printf("Error processing response:", err)
+		fmt.Printf("Error processing response: %v\n", err)
 		return err
 	}
 	return nil

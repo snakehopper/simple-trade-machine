@@ -3,7 +3,6 @@ package ftx
 import (
 	"fmt"
 	"ghohoo.solutions/yt/ftx/structs"
-	"log"
 )
 
 type AccountInfo structs.AccountResponse
@@ -13,7 +12,7 @@ func (client *Client) GetAccount() (AccountInfo, error) {
 	var acc AccountInfo
 	resp, err := client._get("account", []byte(""))
 	if err != nil {
-		log.Printf("Error GetAccount: %v", err)
+		fmt.Printf("Error GetAccount: %v\n", err)
 		return acc, err
 	}
 	err = _processResponse(resp, &acc)
@@ -29,7 +28,7 @@ func (client *Client) GetPositions(showAvgPrice bool) (Positions, error) {
 	var positions Positions
 	resp, err := client._get(link, []byte(""))
 	if err != nil {
-		log.Printf("Error GetPositions", err)
+		fmt.Printf("Error GetPositions: %v\n", err)
 		return positions, err
 	}
 	err = _processResponse(resp, &positions)

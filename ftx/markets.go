@@ -1,8 +1,8 @@
 package ftx
 
 import (
+	"fmt"
 	"ghohoo.solutions/yt/ftx/structs"
-	"log"
 	"strconv"
 )
 
@@ -21,7 +21,7 @@ func (client *Client) GetHistoricalPrices(market string, resolution int64,
 			"&end_time="+strconv.FormatInt(endTime, 10),
 		[]byte(""))
 	if err != nil {
-		log.Printf("Error GetHistoricalPrices", err)
+		fmt.Printf("Error GetHistoricalPrices: %v\n", err)
 		return historicalPrices, err
 	}
 	err = _processResponse(resp, &historicalPrices)
@@ -37,7 +37,7 @@ func (client *Client) GetTrades(market string, limit int64, startTime int64, end
 			"&end_time="+strconv.FormatInt(endTime, 10),
 		[]byte(""))
 	if err != nil {
-		log.Printf("Error GetTrades", err)
+		fmt.Printf("Error GetTrades: %v\n", err)
 		return trades, err
 	}
 	err = _processResponse(resp, &trades)
@@ -48,7 +48,7 @@ func (client *Client) GetMarket(market string) (Market, error) {
 	var marketResp Market
 	resp, err := client._get("markets/"+market, []byte(""))
 	if err != nil {
-		log.Println("Error GetMarket", err)
+		fmt.Printf("Error GetMarket: %v\n", err)
 		return marketResp, err
 	}
 	err = _processResponse(resp, &marketResp)

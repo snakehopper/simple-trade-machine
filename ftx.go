@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"ghohoo.solutions/yt/ftx"
 	"ghohoo.solutions/yt/ftx/structs"
-	"log"
 	"os"
 	"strconv"
 	"time"
@@ -70,11 +69,11 @@ func (c Client) LongPosition(sym string) error {
 		fmt.Printf("place order error: %v\n", err)
 		return err
 	} else if !resp.Success {
-		return errors.New("place order false success")
+		return errors.New("place order unknown error")
 	}
 
 	po := resp.Result
-	fmt.Printf("place order success. sym=%v px=%v qty=%v", po.Market, po.AvgFillPrice, po.Size)
+	fmt.Printf("success place order. sym=%v px=%v qty=%v\n", po.Market, po.AvgFillPrice, po.Size)
 	return nil
 }
 
@@ -130,14 +129,14 @@ func (c Client) closePartialPosition(sym string, pct int) error {
 	resp, err := c.PlaceOrder(sym, offsetSide, 0, "market", pos.Size*float64(pct)/100,
 		true, true, false)
 	if err != nil {
-		log.Printf("close position error: %v", err)
+		fmt.Printf("close position error: %v\n", err)
 		return err
 	} else if !resp.Success {
-		return errors.New("close position false success")
+		return errors.New("close position unknown error ")
 	}
 
 	po := resp.Result
-	fmt.Printf("close position success. sym=%v px=%v size=%v", po.Market, po.AvgFillPrice, po.Size)
+	fmt.Printf("success close position. sym=%v px=%v size=%v\n", po.Market, po.AvgFillPrice, po.Size)
 	return nil
 }
 

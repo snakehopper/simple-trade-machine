@@ -2,8 +2,8 @@ package ftx
 
 import (
 	"encoding/json"
+	"fmt"
 	"ghohoo.solutions/yt/ftx/structs"
-	"log"
 )
 
 type SubaccountsList structs.SubaccountsList
@@ -16,7 +16,7 @@ func (client *Client) GetSubaccounts() (SubaccountsList, error) {
 	var subaccounts SubaccountsList
 	resp, err := client._get("subaccounts", []byte(""))
 	if err != nil {
-		log.Printf("Error GetSubaccounts", err)
+		fmt.Printf("Error GetSubaccounts: %v\n", err)
 		return subaccounts, err
 	}
 	err = _processResponse(resp, &subaccounts)
@@ -27,12 +27,12 @@ func (client *Client) CreateSubaccount(nickname string) (Subaccount, error) {
 	var subaccount Subaccount
 	requestBody, err := json.Marshal(map[string]string{"nickname": nickname})
 	if err != nil {
-		log.Printf("Error CreateSubaccount", err)
+		fmt.Printf("Error CreateSubaccount: %v\n", err)
 		return subaccount, err
 	}
 	resp, err := client._post("subaccounts", requestBody)
 	if err != nil {
-		log.Printf("Error CreateSubaccount", err)
+		fmt.Printf("Error CreateSubaccount: %v\n", err)
 		return subaccount, err
 	}
 	err = _processResponse(resp, &subaccount)
@@ -43,12 +43,12 @@ func (client *Client) ChangeSubaccountName(nickname string, newNickname string) 
 	var changeSubaccount Response
 	requestBody, err := json.Marshal(map[string]string{"nickname": nickname, "newNickname": newNickname})
 	if err != nil {
-		log.Printf("Error ChangeSubaccountName", err)
+		fmt.Printf("Error ChangeSubaccountName: %v\n", err)
 		return changeSubaccount, err
 	}
 	resp, err := client._post("subaccounts/update_name", requestBody)
 	if err != nil {
-		log.Printf("Error ChangeSubaccountName", err)
+		fmt.Printf("Error ChangeSubaccountName: %v\n", err)
 		return changeSubaccount, err
 	}
 	err = _processResponse(resp, &changeSubaccount)
@@ -59,12 +59,12 @@ func (client *Client) DeleteSubaccount(nickname string) (Response, error) {
 	var deleteSubaccount Response
 	requestBody, err := json.Marshal(map[string]string{"nickname": nickname})
 	if err != nil {
-		log.Printf("Error DeleteSubaccount", err)
+		fmt.Printf("Error DeleteSubaccount: %v\n", err)
 		return deleteSubaccount, err
 	}
 	resp, err := client._delete("subaccounts", requestBody)
 	if err != nil {
-		log.Printf("Error DeleteSubaccount", err)
+		fmt.Printf("Error DeleteSubaccount: %v\n", err)
 		return deleteSubaccount, err
 	}
 	err = _processResponse(resp, &deleteSubaccount)
@@ -75,7 +75,7 @@ func (client *Client) GetSubaccountBalances(nickname string) (SubaccountBalances
 	var subaccountBalances SubaccountBalances
 	resp, err := client._get("subaccounts/"+nickname+"/balances", []byte(""))
 	if err != nil {
-		log.Printf("Error SubaccountBalances", err)
+		fmt.Printf("Error SubaccountBalances: %v\n", err)
 		return subaccountBalances, err
 	}
 	err = _processResponse(resp, &subaccountBalances)
@@ -91,12 +91,12 @@ func (client *Client) TransferSubaccounts(coin string, size float64, source stri
 		"destination": destination,
 	})
 	if err != nil {
-		log.Printf("Error TransferSubaccounts", err)
+		fmt.Printf("Error TransferSubaccounts: %v\n", err)
 		return transferSubaccounts, err
 	}
 	resp, err := client._post("subaccounts/transfer", requestBody)
 	if err != nil {
-		log.Printf("Error TransferSubaccounts", err)
+		fmt.Printf("Error TransferSubaccounts: %v\n", err)
 		return transferSubaccounts, err
 	}
 	err = _processResponse(resp, &transferSubaccounts)
