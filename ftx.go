@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"time"
 )
 
 type Client struct {
@@ -23,9 +24,6 @@ func (c Client) LongPosition(sym string) error {
 	}
 
 	res := acc.Result
-	if res.FreeCollateral < 50 {
-		return nil
-	}
 
 	pct, ok := os.LookupEnv("OPEN_PERCENT")
 	if !ok {
@@ -38,6 +36,7 @@ func (c Client) LongPosition(sym string) error {
 
 	orderUsd := (res.Collateral * res.Leverage) * (float64(pctValue) / 100)
 	if freeUsd := res.FreeCollateral * res.Leverage * 0.9; freeUsd < orderUsd {
+		fmt.Printf("low collateral, trim notional %v -> %v\n", orderUsd, freeUsd)
 		orderUsd = freeUsd
 	}
 
@@ -58,10 +57,17 @@ func (c Client) LongPosition(sym string) error {
 	} else if !market.Success {
 		return errors.New("fetch market false success")
 	}
+
 	px := market.Result.Bid
-	resp, err := c.PlaceOrder(sym, "buy", px, "limit", orderUsd/px, false, false, false)
+	orderQty := orderUsd / px
+	if orderQty < market.Result.MinProvideSize {
+		fmt.Printf("order size too small (%v < %v), skip LONG action\n", orderQty, market.Result.MinProvideSize)
+		return nil
+	}
+
+	resp, err := c.PlaceOrder(sym, "buy", px, "limit", orderQty, false, false, false)
 	if err != nil {
-		log.Printf("place order error: %v", err)
+		fmt.Printf("place order error: %v\n", err)
 		return err
 	} else if !resp.Success {
 		return errors.New("place order false success")
@@ -82,7 +88,15 @@ func (c Client) ReducePosition(sym string) error {
 		return err
 	}
 
-	return c.closePartialPosition(sym, pctValue)
+	for i := 0; i < 3; i++ {
+		err = c.closePartialPosition(sym, pctValue)
+		if err == nil {
+			return nil
+		}
+		fmt.Printf("#%d wait a second and retry\n", i)
+		time.Sleep(3 * time.Second)
+	}
+	return err
 }
 
 func (c Client) closePartialPosition(sym string, pct int) error {
@@ -128,11 +142,29 @@ func (c Client) closePartialPosition(sym string, pct int) error {
 }
 
 func (c Client) ClosePosition(sym string) error {
-	return c.closePartialPosition(sym, 100)
+	var err error
+	for i := 0; i < 3; i++ {
+		err = c.closePartialPosition(sym, 100)
+		if err == nil {
+			return nil
+		}
+		fmt.Printf("#%d wait a second and retry\n", i)
+		time.Sleep(3 * time.Second)
+	}
+	return err
 }
 
 func (c Client) StopLossPosition(sym string) error {
-	return c.closePartialPosition(sym, 100)
+	var err error
+	for i := 0; i < 3; i++ {
+		err = c.closePartialPosition(sym, 100)
+		if err == nil {
+			return nil
+		}
+		fmt.Printf("#%d wait a second and retry\n", i)
+		time.Sleep(3 * time.Second)
+	}
+	return err
 }
 
 func NewFtx() *Client {
