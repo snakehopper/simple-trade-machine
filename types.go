@@ -13,6 +13,10 @@ const (
 type Alert int
 
 func NewAlert(s string) Alert {
+	if len(s) == 0 {
+		return UnknownAlert
+	}
+
 	switch a := []rune(s)[0]; a {
 	case '多':
 		return LONG

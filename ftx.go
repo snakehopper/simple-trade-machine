@@ -113,6 +113,7 @@ func (c Client) closePartialPosition(sym string, pct int) error {
 			break
 		}
 	}
+	fmt.Printf("%+v\n", pos)
 
 	//skip action if EMPTY position
 	if pos.Size == 0 {

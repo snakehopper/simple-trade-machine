@@ -1,5 +1,5 @@
-FUNCTION_TARGET=PredAlert
-FUNCTION_NAME=go-http-function
+FUNCTION_TARGET=AlertHandler
+FUNCTION_NAME=simple-trade-machine
 
 gcloud beta functions deploy ${FUNCTION_NAME} \
 --gen2 \

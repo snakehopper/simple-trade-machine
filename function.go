@@ -13,8 +13,8 @@ import (
 
 func init() {
 	r := mux.NewRouter()
-	r.HandleFunc("/{exch}/{sym:[A-Z0-9/-]+}", predAlert)
-	functions.HTTP("PredAlert", r.ServeHTTP)
+	r.HandleFunc("/{exch}/{sym:[A-Z0-9/-]+}", alertHandler)
+	functions.HTTP("AlertHandler", r.ServeHTTP)
 
 	validateEnv()
 }
@@ -23,6 +23,8 @@ const (
 	DefaultOpenOrderPercent      = "10"
 	DefaultReducePositionPercent = "50"
 )
+
+var whitelist = NewWhitelist()
 
 func validateEnv() {
 	if v, ok := os.LookupEnv("OPEN_PERCENT"); ok {
@@ -42,14 +44,19 @@ func validateEnv() {
 	}
 }
 
-func predAlert(w http.ResponseWriter, r *http.Request) {
+func alertHandler(w http.ResponseWriter, r *http.Request) {
+	if !whitelist.Allow(r) {
+		return
+	}
+
 	v := mux.Vars(r)
 	sym := strings.Trim(v["sym"], "/")
 	var exch Exchange
 	switch e := strings.ToUpper(v["exch"]); e {
 	case "FTX":
 		exch = NewFtx()
-	//	ok
+	case "BINANCE":
+		fallthrough
 	default:
 		http.Error(w, "unsupported exchange:"+e, http.StatusBadRequest)
 		return
@@ -62,7 +69,7 @@ func predAlert(w http.ResponseWriter, r *http.Request) {
 	}
 
 	signal := NewAlert(string(bs))
-	fmt.Println("action: ", signal.String())
+	fmt.Println("action: ", signal.String(), sym)
 	switch signal {
 	case LONG:
 		err = exch.LongPosition(sym)
@@ -73,7 +80,7 @@ func predAlert(w http.ResponseWriter, r *http.Request) {
 	case STOP_LOSS:
 		err = exch.StopLossPosition(sym)
 	default:
-		fmt.Println("unknown alert: ", signal)
+		fmt.Println(signal, string(bs))
 	}
 	if err != nil {
 		fmt.Println(err.Error())
