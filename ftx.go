@@ -114,7 +114,7 @@ func (c Client) closePartialPosition(sym string, pct int) error {
 		offsetSide = "buy"
 	}
 	resp, err := c.PlaceOrder(sym, offsetSide, 0, "market", pos.Size*float64(pct)/100,
-		true, false, false)
+		true, true, false)
 	if err != nil {
 		log.Printf("close position error: %v", err)
 		return err

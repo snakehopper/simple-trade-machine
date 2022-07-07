@@ -99,24 +99,31 @@ func (client *Client) GetTriggerOrdersHistory(market string, startTime float64, 
 func (client *Client) PlaceOrder(market string, side string, price float64,
 	_type string, size float64, reduceOnly bool, ioc bool, postOnly bool) (NewOrderResponse, error) {
 	var newOrderResponse NewOrderResponse
-	requestBody, err := json.Marshal(NewOrder{
+	po := NewOrder{
 		Market:     market,
 		Side:       side,
-		Price:      price,
+		Price:      &price,
 		Type:       _type,
 		Size:       size,
 		ReduceOnly: reduceOnly,
 		Ioc:        ioc,
-		PostOnly:   postOnly})
+		PostOnly:   postOnly}
+	if _type == "market" {
+		po.Price = nil
+	}
+	requestBody, err := json.Marshal(po)
 	if err != nil {
 		log.Printf("Error PlaceOrder", err)
 		return newOrderResponse, err
 	}
+
+	fmt.Println(">", string(requestBody))
 	resp, err := client._post("orders", requestBody)
 	if err != nil {
-		log.Printf("Error PlaceOrder", err)
+		fmt.Printf("post PlaceOrder error: %v", err)
 		return newOrderResponse, err
 	}
+
 	err = _processResponse(resp, &newOrderResponse)
 	return newOrderResponse, err
 }

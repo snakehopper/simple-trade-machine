@@ -52,6 +52,7 @@ func _processResponse(resp *http.Response, result interface{}) error {
 		log.Printf("Error processing response:", err)
 		return err
 	}
+	fmt.Println("<", string(body))
 	err = json.Unmarshal(body, result)
 	if err != nil {
 		log.Printf("Error processing response:", err)
