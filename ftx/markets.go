@@ -3,12 +3,12 @@ package ftx
 import (
 	"fmt"
 	"ghohoo.solutions/yt/ftx/structs"
+	"ghohoo.solutions/yt/internal/data"
 	"strconv"
 )
 
 type HistoricalPrices structs.HistoricalPrices
 type Trades structs.Trades
-type Market structs.MarketResponse
 
 func (client *Client) GetHistoricalPrices(market string, resolution int64,
 	limit int64, startTime int64, endTime int64) (HistoricalPrices, error) {
@@ -44,13 +44,24 @@ func (client *Client) GetTrades(market string, limit int64, startTime int64, end
 	return trades, err
 }
 
-func (client *Client) GetMarket(market string) (Market, error) {
-	var marketResp Market
+func (client *Client) GetMarket(market string) (*data.Market, error) {
 	resp, err := client._get("markets/"+market, []byte(""))
 	if err != nil {
 		fmt.Printf("Error GetMarket: %v\n", err)
-		return marketResp, err
+		return nil, err
 	}
-	err = _processResponse(resp, &marketResp)
-	return marketResp, err
+	var mResp structs.MarketResponse
+	err = _processResponse(resp, &mResp)
+	if err != nil {
+		return nil, err
+	}
+
+	res := mResp.Result
+	return &data.Market{
+		Bid:         res.Bid,
+		Ask:         res.Ask,
+		Last:        res.Last,
+		TickSize:    res.SizeIncrement,
+		MinNotional: res.MinProvideSize,
+	}, nil
 }
