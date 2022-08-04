@@ -75,6 +75,8 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 	switch signal {
 	case data.LONG:
 		err = longPosition(exch, sym)
+	case data.SHORT:
+		err = shortPosition(exch, sym)
 	case data.REDUCE:
 		err = reducePosition(exch, sym)
 	case data.CLOSE:
@@ -90,7 +92,7 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func longPosition(exch data.Exchange, sym string) error {
+func openPosition(exch data.Exchange, sym string, side data.Side) error {
 	total, free, err := exch.MaxQuoteValue(sym)
 	if err != nil {
 		return nil
@@ -113,7 +115,15 @@ func longPosition(exch data.Exchange, sym string) error {
 		return nil
 	}
 
-	return exch.MarketOrder(sym, data.Buy, &orderUsd, nil)
+	return exch.MarketOrder(sym, side, &orderUsd, nil)
+}
+
+func longPosition(exch data.Exchange, sym string) error {
+	return openPosition(exch, sym, data.Buy)
+}
+
+func shortPosition(exch data.Exchange, sym string) error {
+	return openPosition(exch, sym, data.Sell)
 }
 
 func reducePosition(exch data.Exchange, sym string) error {
