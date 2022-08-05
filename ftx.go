@@ -60,10 +60,21 @@ func (c Client) LimitOrder(sym string, side data.Side, px float64, qty float64, 
 	return nil
 }
 
-func (c Client) MarketOrder(sym string, side data.Side, px *float64, qty *float64) error {
-	size := math.Abs(*qty)
+func (c Client) MarketOrder(sym string, side data.Side, quoteUnit *float64, qty *float64) error {
+	var size float64
+	if qty != nil {
+		size = math.Abs(*qty)
+	} else if quoteUnit != nil {
+		m, err := c.GetMarket(sym)
+		if err != nil {
+			return fmt.Errorf("get price error when MarketOrder: %w", err)
+		}
+		size = *quoteUnit / m.Last
+	} else {
+		return fmt.Errorf("either px or qty should defined")
+	}
 	resp, err := c.PlaceOrder(sym, string(side), 0, "market", size,
-		true, true, false)
+		false, true, false)
 	if err != nil {
 		fmt.Printf("place market order error: %v\n", err)
 		return err
