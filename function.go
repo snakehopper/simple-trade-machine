@@ -1,9 +1,11 @@
 package function
 
 import (
+	"context"
 	"fmt"
 	"ghohoo.solutions/yt/internal/data"
 	"github.com/GoogleCloudPlatform/functions-framework-go/functions"
+	"github.com/gofrs/flock"
 	"github.com/gorilla/mux"
 	"io/ioutil"
 	"net/http"
@@ -53,8 +55,9 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 
 	v := mux.Vars(r)
 	sym := strings.Trim(v["sym"], "/")
+	e := strings.ToUpper(v["exch"])
 	var exch data.Exchange
-	switch e := strings.ToUpper(v["exch"]); e {
+	switch e {
 	case "FTX":
 		exch = NewFtx()
 	case "BINANCE":
@@ -72,6 +75,17 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 
 	signal := data.NewAlert(string(bs))
 	fmt.Println("action: ", signal.String(), sym)
+
+	// lock to handle signal 1by1
+	fl := flock.New(fmt.Sprintf("/tmp/%s_%s", e, sym))
+	if ok, err := fl.TryLock(); !ok || err != nil {
+		fmt.Println("try lock failed", ok, err)
+		fmt.Println("waiting lock with retry context...", e, sym)
+		ok, err = fl.TryLockContext(context.Background(), time.Second)
+		fmt.Println("TryLockContext return", ok, err)
+	}
+	defer fl.Unlock()
+
 	switch signal {
 	case data.LONG:
 		err = longPosition(exch, sym)
