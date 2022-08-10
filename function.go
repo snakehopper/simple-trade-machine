@@ -132,11 +132,30 @@ func openPosition(exch data.Exchange, sym string, side data.Side) error {
 	return exch.MarketOrder(sym, side, &orderUsd, nil)
 }
 
+func closeIfAnyPosition(exch data.Exchange, sym string) error {
+	pos, err := exch.GetPosition(sym)
+	if err != nil {
+		return err
+	}
+	if pos == 0 {
+		return nil
+	}
+
+	return closePosition(exch, sym)
+}
+
 func longPosition(exch data.Exchange, sym string) error {
+	if err := closeIfAnyPosition(exch, sym); err != nil {
+		return err
+	}
 	return openPosition(exch, sym, data.Buy)
 }
 
 func shortPosition(exch data.Exchange, sym string) error {
+	if err := closeIfAnyPosition(exch, sym); err != nil {
+		return err
+	}
+
 	return openPosition(exch, sym, data.Sell)
 }
 
