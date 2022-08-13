@@ -3,6 +3,7 @@ package function
 import (
 	"context"
 	"fmt"
+	"ghohoo.solutions/yt/binance/spot"
 	"ghohoo.solutions/yt/internal/data"
 	"github.com/GoogleCloudPlatform/functions-framework-go/functions"
 	"github.com/gofrs/flock"
@@ -59,9 +60,9 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 	var exch data.Exchange
 	switch e {
 	case "FTX":
-		exch = NewFtx()
+		exch = NewFtx(os.Getenv("FTX_APIKEY"), os.Getenv("FTX_SECRET"), os.Getenv("FTX_SUBACCOUNT"))
 	case "BINANCE":
-		fallthrough
+		exch = spot.NewApi(os.Getenv("BINANCE_APIKEY"), os.Getenv("BINANCE_SECRET"))
 	default:
 		http.Error(w, "unsupported exchange:"+e, http.StatusBadRequest)
 		return

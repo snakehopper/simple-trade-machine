@@ -9,6 +9,7 @@ require (
 
 require (
 	github.com/gofrs/flock v0.8.1 // indirect
+	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/stretchr/testify v1.6.1
 	golang.org/x/sys v0.0.0-20220808155132-1c4a2a72c664 // indirect
 )

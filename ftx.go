@@ -7,7 +7,6 @@ import (
 	"ghohoo.solutions/yt/ftx/structs"
 	"ghohoo.solutions/yt/internal/data"
 	"math"
-	"os"
 )
 
 type Client struct {
@@ -84,8 +83,8 @@ func (c Client) MarketOrder(sym string, side data.Side, quoteUnit *float64, qty 
 
 	return nil
 }
-func NewFtx() *Client {
+func NewFtx(apiKey, secret, subaccount string) *Client {
 	return &Client{
-		ftx.New(os.Getenv("FTX_APIKEY"), os.Getenv("FTX_SECRET"), os.Getenv("FTX_SUBACCOUNT")),
+		ftx.New(apiKey, secret, subaccount),
 	}
 }
