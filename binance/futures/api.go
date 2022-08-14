@@ -1,4 +1,4 @@
-package spot
+package futures
 
 import (
 	"encoding/json"
@@ -15,7 +15,7 @@ type Api struct {
 
 func NewApi(apiKey, secret string) *Api {
 	return &Api{
-		Client: com.NewClient("https://api.binance.com", apiKey, secret),
+		Client: com.NewClient("https://fapi.binance.com", apiKey, secret),
 	}
 }
 
@@ -28,29 +28,18 @@ func (a Api) MaxQuoteValue(sym string) (total, free float64, err error) {
 		return
 	}
 
-	exch, err := a.ExchangeInfo(sym)
+	sp, err := acc.GetPosition(sym)
 	if err != nil {
 		return
 	}
-	var quote string
-	if s := exch.Symbols[0]; s.Symbol != sym {
-		err = fmt.Errorf("exchange info symbol not match: %+v", s)
-		return
-	} else {
-		quote = s.QuoteAsset
-	}
-	for _, bal := range acc.Balances {
-		if bal.Asset == quote {
-			free = bal.Free
-			total = bal.Free + bal.Locked
-			return
-		}
-	}
+
+	total = acc.TotalMarginBalance * sp.Leverage
+	free = acc.AvailableBalance * sp.Leverage
 	return
 }
 
 func (a Api) GetMarket(sym string) (*data.Market, error) {
-	res, err := a.ExchangeInfo(sym)
+	res, err := a.ExchangeInfo()
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +49,7 @@ func (a Api) GetMarket(sym string) (*data.Market, error) {
 			var tickSize, minNotional float64
 			for _, fp := range rs.Filters {
 				if fp.FilterType == "MIN_NOTIONAL" {
-					minNotional = fp.MinNotional
+					minNotional = fp.Notional
 				} else if fp.FilterType == "PRICE_FILTER" {
 					tickSize = fp.TickSize
 				}
@@ -86,24 +75,11 @@ func (a Api) GetPosition(sym string) (float64, error) {
 		return 0, err
 	}
 
-	exch, err := a.ExchangeInfo(sym)
+	pos, err := acc.GetPosition(sym)
 	if err != nil {
 		return 0, err
 	}
-	var base string
-	if s := exch.Symbols[0]; s.Symbol != sym {
-		err = fmt.Errorf("exchange info symbol not match: %+v", s)
-		return 0, err
-	} else {
-		base = s.BaseAsset
-	}
-	for _, bal := range acc.Balances {
-		if bal.Asset == base {
-			return bal.Free + bal.Locked, nil
-		}
-	}
-
-	return 0, fmt.Errorf("unknown symbol %v", sym)
+	return pos.PositionAmt, nil
 }
 
 func (a Api) LimitOrder(sym string, side data.Side, px float64, qty float64, ioc bool, _postOnly bool) error {
@@ -119,7 +95,7 @@ func (a Api) LimitOrder(sym string, side data.Side, px float64, qty float64, ioc
 	v.Set("quantity", fmt.Sprint(qty))
 	v.Set("price", fmt.Sprint(px))
 	fmt.Println(v.Encode())
-	resp, err := a.Post("/api/v3/order", v, true)
+	resp, err := a.Post("/fapi/v1/order", v, true)
 	if err != nil {
 		return err
 	}
@@ -146,13 +122,11 @@ func (a Api) MarketOrder(sym string, side data.Side, quoteQty *float64, baseQty 
 	v.Set("symbol", sym)
 	v.Set("type", "MARKET")
 	if quoteQty != nil {
-		v.Set("quoteOrderQty", fmt.Sprint(*quoteQty))
+		return fmt.Errorf("binance-futures no support MARKET order with quoteQty")
 	}
-	if baseQty != nil {
-		v.Set("quantity", fmt.Sprint(*baseQty))
-	}
+	v.Set("quantity", fmt.Sprint(*baseQty))
 	fmt.Println(v.Encode())
-	resp, err := a.Post("/api/v3/order", v, true)
+	resp, err := a.Post("/fapi/v1/order", v, true)
 	if err != nil {
 		return err
 	}

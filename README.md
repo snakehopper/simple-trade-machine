@@ -89,7 +89,15 @@ Google Cloud functions 服務中斷的話，將會錯過開倉、平倉訊號！
 |----------------|---------------------------|
 | OPEN_PERCENT   | 每次開倉比例：10 代表每次使用十份之一的資金下單 |
 | REDUCE_PERCENT | 每次減倉比例：50 代表每次減倉一半的倉位     |
-| FTX_APIKEY | FTX 網頁申請的 API Key         |   
-| FTX_SECRET | FTX 網頁申請的 API Secret      |   
+| FTX_APIKEY     | FTX 網頁申請的 API Key         |   
+| FTX_SECRET     | FTX 網頁申請的 API Secret      |   
 | FTX_SUBACCOUNT | (選填) main 帳號填空 `""`       |   
+| BINANCE_APIKEY | 幣安網頁申請的 API Key           |   
+| BINANCE_SECRET | 幣安網頁申請的 API Secret        |   
 
+## 限制
+
+### 幣安
+
+不支援月合約、季合約
+如果要交易 BUSD 交易對，需要開啟「聯合保證金模式」Multi-Assets Mode

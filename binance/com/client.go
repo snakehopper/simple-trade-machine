@@ -63,7 +63,7 @@ func (c Client) SignRequest(r *http.Request) {
 func (c Client) HashRequest(r *http.Request) string {
 	//inject timestamp epoch
 	v := r.URL.Query()
-	v.Set("timestamp", fmt.Sprint(time.Now().UnixMilli()))
+	v.Set("timestamp", fmt.Sprint(time.Now().Unix()*1000))
 	v.Set("recvWindow", "10000")
 	r.URL.RawQuery = v.Encode()
 
