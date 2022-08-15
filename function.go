@@ -43,7 +43,9 @@ func validateEnv() {
 			panic(err)
 		}
 	}
-	for _, ev := range []string{"FTX_APIKEY", "FTX_SECRET"} {
+	for _, ev := range []string{
+		"FTX_APIKEY", "FTX_SECRET",
+		"BINANCE_APIKEY", "BINANCE_SECRET"} {
 		if _, ok := os.LookupEnv(ev); !ok {
 			fmt.Println(ev, "not set")
 		}

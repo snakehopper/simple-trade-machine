@@ -1,5 +1,9 @@
 package spot
 
+import (
+	"github.com/shopspring/decimal"
+)
+
 type ExchangeInfoResp struct {
 	Timezone   string `json:"timezone"`
 	ServerTime int64  `json:"serverTime"`
@@ -51,6 +55,67 @@ type ExchangeInfoResp struct {
 		} `json:"filters"`
 		Permissions []string `json:"permissions"`
 	} `json:"symbols"`
+}
+
+func (e ExchangeInfoResp) RoundLotSize(symbol string, qty float64) float64 {
+	for _, sym := range e.Symbols {
+		if sym.Symbol != symbol {
+			continue
+		}
+		for _, ft := range sym.Filters {
+			if ft.FilterType != "LOT_SIZE" {
+				continue
+			}
+			step, err := decimal.NewFromString(ft.StepSize)
+			if err != nil {
+				panic(err)
+			}
+			return decimal.NewFromFloat(qty).Div(step).Floor().Mul(step).InexactFloat64()
+		}
+	}
+
+	panic("failed to get LOT_SIZE: " + symbol)
+}
+
+func (e ExchangeInfoResp) RoundTickSize(symbol string, quoteOrderQty float64) float64 {
+	for _, sym := range e.Symbols {
+		if sym.Symbol != symbol {
+			continue
+		}
+		for _, ft := range sym.Filters {
+			if ft.FilterType != "PRICE_FILTER" {
+				continue
+			}
+			tick := decimal.NewFromFloat(ft.TickSize)
+			return decimal.NewFromFloat(quoteOrderQty).Div(tick).Floor().Mul(tick).InexactFloat64()
+		}
+	}
+
+	panic("failed to get PRICE_FILTER: " + symbol)
+}
+
+func (e ExchangeInfoResp) MinNotional(symbol string) float64 {
+	for _, sym := range e.Symbols {
+		if sym.Symbol != symbol {
+			continue
+		}
+		for _, ft := range sym.Filters {
+			if ft.FilterType != "MIN_NOTIONAL" {
+				continue
+			}
+			return ft.MinNotional
+		}
+	}
+
+	panic("failed to get LOT_SIZE: " + symbol)
+}
+
+type OrderBookTickerResp struct {
+	Symbol   string  `json:"symbol"`
+	BidPrice float64 `json:"bidPrice,string"`
+	BidQty   string  `json:"bidQty"`
+	AskPrice float64 `json:"askPrice,string"`
+	AskQty   string  `json:"askQty"`
 }
 
 type AccountResp struct {

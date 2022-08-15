@@ -1,6 +1,9 @@
 package futures
 
-import "fmt"
+import (
+	"fmt"
+	"github.com/shopspring/decimal"
+)
 
 type ExchangeInfoResp struct {
 	Timezone   string `json:"timezone"`
@@ -13,6 +16,43 @@ type ExchangeInfoResp struct {
 	} `json:"rateLimits"`
 	ExchangeFilters []interface{} `json:"exchangeFilters"`
 	Symbols         []SymbolResp  `json:"symbols"`
+}
+
+func (e ExchangeInfoResp) RoundLotSize(symbol string, qty float64) float64 {
+	for _, sym := range e.Symbols {
+		if sym.Symbol != symbol {
+			continue
+		}
+		for _, ft := range sym.Filters {
+			if ft.FilterType != "LOT_SIZE" {
+				continue
+			}
+			step, err := decimal.NewFromString(ft.StepSize)
+			if err != nil {
+				panic(err)
+			}
+			return decimal.NewFromFloat(qty).Div(step).Floor().Mul(step).InexactFloat64()
+		}
+	}
+
+	panic("failed to get LOT_SIZE: " + symbol)
+}
+
+func (e ExchangeInfoResp) RoundTickSize(symbol string, quoteOrderQty float64) float64 {
+	for _, sym := range e.Symbols {
+		if sym.Symbol != symbol {
+			continue
+		}
+		for _, ft := range sym.Filters {
+			if ft.FilterType != "PRICE_FILTER" {
+				continue
+			}
+			tick := decimal.NewFromFloat(ft.TickSize)
+			return decimal.NewFromFloat(quoteOrderQty).Div(tick).Floor().Mul(tick).InexactFloat64()
+		}
+	}
+
+	panic("failed to get PRICE_FILTER: " + symbol)
 }
 
 type SymbolResp struct {
@@ -53,6 +93,15 @@ type SymbolResp struct {
 	TimeInForce     []string `json:"timeInForce"`
 	LiquidationFee  string   `json:"liquidationFee"`
 	MarketTakeBound string   `json:"marketTakeBound"`
+}
+
+type OrderBookTickerResp struct {
+	Symbol   string  `json:"symbol"`
+	BidPrice float64 `json:"bidPrice,string"`
+	BidQty   string  `json:"bidQty"`
+	AskPrice float64 `json:"askPrice,string"`
+	AskQty   string  `json:"askQty"`
+	Time     int64   `json:"time"`
 }
 
 type AccountResp struct {

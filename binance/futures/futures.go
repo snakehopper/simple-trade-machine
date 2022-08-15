@@ -29,6 +29,29 @@ func (a Api) ExchangeInfo() (*ExchangeInfoResp, error) {
 	return &out, nil
 }
 
+func (a Api) OrderBookTicker(sym string) (*OrderBookTickerResp, error) {
+	q := url.Values{}
+	q.Set("symbol", sym)
+	resp, err := a.Get("/fapi/v1/ticker/bookTicker", q, false)
+	if err != nil {
+		return nil, err
+	}
+
+	defer resp.Body.Close()
+
+	bs, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var out OrderBookTickerResp
+	if err := json.Unmarshal(bs, &out); err != nil {
+		return nil, err
+	}
+
+	return &out, nil
+}
+
 func (a Api) AccountInfo(sym ...string) (*AccountResp, error) {
 	var v = url.Values{}
 	if len(sym) > 0 {

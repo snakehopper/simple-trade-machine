@@ -83,6 +83,10 @@ func (a Api) GetPosition(sym string) (float64, error) {
 }
 
 func (a Api) LimitOrder(sym string, side data.Side, px float64, qty float64, ioc bool, _postOnly bool) error {
+	exch, err := a.ExchangeInfo()
+	if err != nil {
+		return err
+	}
 	var v = url.Values{}
 	v.Set("side", string(side))
 	v.Set("symbol", sym)
@@ -92,7 +96,8 @@ func (a Api) LimitOrder(sym string, side data.Side, px float64, qty float64, ioc
 	} else {
 		v.Set("timeInForce", "GTC")
 	}
-	v.Set("quantity", fmt.Sprint(qty))
+	rounded := exch.RoundLotSize(sym, qty)
+	v.Set("quantity", fmt.Sprint(rounded))
 	v.Set("price", fmt.Sprint(px))
 	fmt.Println(v.Encode())
 	resp, err := a.Post("/fapi/v1/order", v, true)
@@ -113,18 +118,42 @@ func (a Api) LimitOrder(sym string, side data.Side, px float64, qty float64, ioc
 		return err
 	}
 
+	if out.Code != 0 {
+		return fmt.Errorf("limit order error: %v", out.Msg)
+	}
+
+	fmt.Println("<", string(bs))
+
 	return nil
 }
 
 func (a Api) MarketOrder(sym string, side data.Side, quoteQty *float64, baseQty *float64) error {
+	exch, err := a.ExchangeInfo()
+	if err != nil {
+		return err
+	}
+
 	var v = url.Values{}
 	v.Set("side", string(side))
 	v.Set("symbol", sym)
 	v.Set("type", "MARKET")
-	if quoteQty != nil {
-		return fmt.Errorf("binance-futures no support MARKET order with quoteQty")
+
+	if baseQty != nil {
+		rounded := exch.RoundLotSize(sym, *baseQty)
+		v.Set("quantity", fmt.Sprint(rounded))
+	} else {
+		tk, err := a.OrderBookTicker(sym)
+		if err != nil {
+			return err
+		}
+		if side == data.Buy {
+			rounded := exch.RoundLotSize(sym, *quoteQty/tk.AskPrice)
+			v.Set("quantity", fmt.Sprint(rounded))
+		} else {
+			rounded := exch.RoundLotSize(sym, *quoteQty/tk.BidPrice)
+			v.Set("quantity", fmt.Sprint(rounded))
+		}
 	}
-	v.Set("quantity", fmt.Sprint(*baseQty))
 	fmt.Println(v.Encode())
 	resp, err := a.Post("/fapi/v1/order", v, true)
 	if err != nil {
@@ -143,6 +172,12 @@ func (a Api) MarketOrder(sym string, side data.Side, quoteQty *float64, baseQty 
 		fmt.Println(err, string(bs))
 		return err
 	}
+
+	if out.Code != 0 {
+		return fmt.Errorf("market order error: %v", out.Msg)
+	}
+
+	fmt.Println("<", string(bs))
 
 	return nil
 }
