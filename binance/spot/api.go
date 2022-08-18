@@ -7,6 +7,7 @@ import (
 	"ghohoo.solutions/yt/internal/data"
 	"io/ioutil"
 	"net/url"
+	"strings"
 )
 
 type Api struct {
@@ -113,7 +114,7 @@ func (a Api) LimitOrder(sym string, side data.Side, px float64, qty float64, ioc
 	}
 
 	var v = url.Values{}
-	v.Set("side", string(side))
+	v.Set("side", strings.ToUpper(string(side)))
 	v.Set("symbol", sym)
 	v.Set("type", "LIMIT")
 	if ioc {
@@ -158,7 +159,7 @@ func (a Api) MarketOrder(sym string, side data.Side, quoteQty *float64, baseQty 
 	}
 
 	var v = url.Values{}
-	v.Set("side", string(side))
+	v.Set("side", strings.ToUpper(string(side)))
 	v.Set("symbol", sym)
 	v.Set("type", "MARKET")
 	if quoteQty != nil {

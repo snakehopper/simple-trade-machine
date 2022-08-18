@@ -7,6 +7,7 @@ import (
 	"ghohoo.solutions/yt/ftx/structs"
 	"ghohoo.solutions/yt/internal/data"
 	"math"
+	"strings"
 )
 
 type Client struct {
@@ -48,7 +49,7 @@ func (c Client) GetPosition(sym string) (float64, error) {
 
 func (c Client) LimitOrder(sym string, side data.Side, px float64, qty float64, ioc bool, postOnly bool) error {
 	size := math.Abs(qty)
-	resp, err := c.PlaceOrder(sym, string(side), px, "limit", size, false, false, false)
+	resp, err := c.PlaceOrder(sym, strings.ToLower(string(side)), px, "limit", size, false, false, false)
 	if err != nil {
 		fmt.Printf("place limit order error: %v\n", err)
 		return err
@@ -72,7 +73,7 @@ func (c Client) MarketOrder(sym string, side data.Side, quoteUnit *float64, qty 
 	} else {
 		return fmt.Errorf("either px or qty should defined")
 	}
-	resp, err := c.PlaceOrder(sym, string(side), 0, "market", size,
+	resp, err := c.PlaceOrder(sym, strings.ToLower(string(side)), 0, "market", size,
 		false, true, false)
 	if err != nil {
 		fmt.Printf("place market order error: %v\n", err)

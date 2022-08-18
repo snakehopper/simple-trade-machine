@@ -80,8 +80,8 @@ type Exchange interface {
 type Side string
 
 const (
-	Buy  Side = "BUY"
-	Sell Side = "SELL"
+	Buy  Side = "buy"
+	Sell Side = "sell"
 )
 
 type Market struct {
