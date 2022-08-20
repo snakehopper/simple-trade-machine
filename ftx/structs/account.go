@@ -44,3 +44,17 @@ type Position struct {
 	Size                         float64 `json:"size"`
 	UnrealizedPnl                float64 `json:"unrealizedPnl"`
 }
+
+type WalletBalancesResp struct {
+	Success bool             `json:"success"`
+	Result  []WalletBalances `json:"result"`
+}
+
+type WalletBalances struct {
+	Coin                   string  `json:"coin"`
+	Free                   float64 `json:"free"`
+	SpotBorrow             float64 `json:"spotBorrow"`
+	Total                  float64 `json:"total"`
+	UsdValue               float64 `json:"usdValue"`
+	AvailableWithoutBorrow float64 `json:"availableWithoutBorrow"`
+}

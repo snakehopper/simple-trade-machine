@@ -65,3 +65,71 @@ func (client *Client) GetMarket(market string) (*data.Market, error) {
 		MinNotional: res.MinProvideSize,
 	}, nil
 }
+
+type MarketInfo struct {
+	data map[string]Market
+}
+
+//GetTradingPair return cached symbol info
+func (c *Client) GetTradingPair(sym string) Market {
+	res, ok := c.markets[sym]
+	if ok {
+		return res
+	}
+
+	if err := c.FetchMarkets(); err != nil {
+		fmt.Printf("fetch markets error: %v", err)
+		return Market{}
+	}
+
+	return c.markets[sym]
+}
+
+func (c *Client) FetchMarkets() error {
+	resp, err := c._get("markets", []byte(""))
+	if err != nil {
+		return err
+	}
+
+	var markets = struct {
+		Success bool             `json:"success"`
+		Result  []structs.Market `json:"result"`
+	}{}
+	if err = _processResponse(resp, &markets); err != nil {
+		return err
+	}
+
+	for _, m := range markets.Result {
+		if m.Type == "spot" {
+			c.markets[m.Name] = Market{
+				Name:  m.Name,
+				Type:  Spot,
+				Base:  *m.BaseCurrency,
+				Quote: *m.QuoteCurrency,
+			}
+		} else if m.Type == "future" {
+			c.markets[m.Name] = Market{
+				Name:  m.Name,
+				Type:  Future,
+				Base:  *m.Underlying,
+				Quote: "USD",
+			}
+		}
+	}
+
+	return nil
+}
+
+type Market struct {
+	Name  string
+	Type  MarketType
+	Base  string
+	Quote string
+}
+
+type MarketType string
+
+var (
+	Spot   MarketType = "spot"
+	Future MarketType = "future"
+)

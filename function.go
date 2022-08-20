@@ -12,6 +12,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -83,7 +84,8 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("action: ", signal.String(), sym)
 
 	// lock to handle signal 1by1
-	fl := flock.New(fmt.Sprintf("/tmp/%s_%s", e, sym))
+	fmt.Println(filepath.Glob("/tmp/*"))
+	fl := flock.New(fmt.Sprintf("/tmp/%s_%s", e, strings.ReplaceAll(sym, "/", "____")))
 	if ok, err := fl.TryLock(); !ok || err != nil {
 		fmt.Println("try lock failed", ok, err)
 		fmt.Println("waiting lock with retry context...", e, sym)
@@ -185,8 +187,6 @@ func closePartialPosition(exch data.Exchange, sym string, pct float64) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("%+v\n", pos)
-
 	//skip action if EMPTY position
 	if pos == 0 {
 		fmt.Println("empty position, skip close action")

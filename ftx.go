@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"ghohoo.solutions/yt/ftx"
-	"ghohoo.solutions/yt/ftx/structs"
 	"ghohoo.solutions/yt/internal/data"
 	"math"
 	"strings"
@@ -30,21 +29,29 @@ func (c Client) MaxQuoteValue(sym string) (total, free float64, err error) {
 }
 
 func (c Client) GetPosition(sym string) (float64, error) {
-	acc, err := c.GetAccount()
-	if err != nil {
-		return 0, err
-	} else if !acc.Success {
-		return 0, errors.New("fetch account false success")
-	}
-
-	var pos structs.Position
-	for _, p := range acc.Result.Positions {
-		if p.Future == sym {
-			pos = p
-			break
+	switch c.GetTradingPair(sym).Type {
+	case ftx.Spot:
+		bal, err := c.GetBalance(sym)
+		if err != nil {
+			return 0, err
 		}
+		return bal.Free, nil
+	case ftx.Future:
+		acc, err := c.GetAccount()
+		if err != nil {
+			return 0, err
+		} else if !acc.Success {
+			return 0, errors.New("fetch account false success")
+		}
+		for _, p := range acc.Result.Positions {
+			if p.Future == sym {
+				return p.NetSize, nil
+			}
+		}
+		fallthrough
+	default:
+		return 0, fmt.Errorf("unknown market: %s", sym)
 	}
-	return pos.NetSize, nil
 }
 
 func (c Client) LimitOrder(sym string, side data.Side, px float64, qty float64, ioc bool, postOnly bool) error {
