@@ -34,13 +34,13 @@ func (a Api) MaxQuoteValue(sym string) (total, free float64, err error) {
 
 func (a Api) GetPosition(sym string) (float64, error) {
 	switch a.GetTradingPair(sym).Type {
-	case Spot:
+	case data.Spot:
 		bal, err := a.GetBalance(sym)
 		if err != nil {
 			return 0, err
 		}
 		return bal.Free, nil
-	case Future:
+	case data.Future:
 		acc, err := a.GetAccount()
 		if err != nil {
 			return 0, err

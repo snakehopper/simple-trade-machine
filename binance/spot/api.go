@@ -73,6 +73,7 @@ func (a Api) GetMarket(sym string) (*data.Market, error) {
 				Bid:         0, //TODO
 				Ask:         0, //TODO
 				Last:        0, //TODO
+				Type:        data.Spot,
 				TickSize:    tickSize,
 				MinNotional: minNotional,
 			}, nil
@@ -103,7 +104,7 @@ func (a Api) GetPosition(sym string) (float64, error) {
 	}
 	for _, bal := range acc.Balances {
 		if bal.Asset == base {
-			return bal.Free + bal.Locked, nil
+			return bal.Free, nil
 		}
 	}
 

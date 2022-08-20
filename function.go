@@ -143,6 +143,15 @@ func NewSignalHandler(exName, symbol string) (*SignalHandler, error) {
 }
 
 func (h SignalHandler) openPosition(side data.Side) error {
+	market, err := h.exch.GetMarket(h.sym)
+	if err != nil {
+		return err
+	}
+
+	if market.Type == data.Spot && side == data.Sell {
+		return h.closeIfAnyPosition()
+	}
+
 	total, free, err := h.exch.MaxQuoteValue(h.sym)
 	if err != nil {
 		return nil
@@ -155,13 +164,8 @@ func (h SignalHandler) openPosition(side data.Side) error {
 		orderUsd = freeUsd
 	}
 
-	market, err := h.exch.GetMarket(h.sym)
-	if err != nil {
-		return err
-	}
-
 	if orderUsd < market.MinNotional {
-		h.log.Infof("order size too small (%v < %v), skip LONG action\n", orderUsd, market.MinNotional)
+		h.log.Infof("order size too small (%v < %v), skip %v action\n", orderUsd, side, market.MinNotional)
 		return nil
 	}
 
@@ -174,6 +178,7 @@ func (h SignalHandler) closeIfAnyPosition() error {
 		return err
 	}
 	if pos == 0 {
+		h.log.Info("no position to close")
 		return nil
 	}
 
@@ -243,7 +248,7 @@ func (h SignalHandler) closePosition() error {
 		if err == nil {
 			return nil
 		}
-		h.log.Infof("#%d wait a second and retry\n", i)
+		h.log.Info("#", i, "#%d err:%v, wait a second and retry", i, err)
 		time.Sleep(3 * time.Second)
 	}
 	return err

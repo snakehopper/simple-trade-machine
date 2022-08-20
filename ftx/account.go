@@ -37,7 +37,7 @@ func (a Api) GetPositions(showAvgPrice bool) (Positions, error) {
 
 func (a Api) GetBalance(sym string) (*structs.WalletBalances, error) {
 	var balances structs.WalletBalancesResp
-	resp, err := a._get("/wallet/balances", []byte(""))
+	resp, err := a._get("wallet/balances", []byte(""))
 	if err != nil {
 		fmt.Printf("Error GetAccount: %v\n", err)
 		return nil, err

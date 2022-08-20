@@ -85,9 +85,17 @@ const (
 )
 
 type Market struct {
+	Type        MarketType
 	Bid         float64
 	Ask         float64
 	Last        float64
 	TickSize    float64
 	MinNotional float64
 }
+
+type MarketType string
+
+var (
+	Spot   MarketType = "spot"
+	Future MarketType = "future"
+)

@@ -57,10 +57,18 @@ func (a Api) GetMarket(market string) (*data.Market, error) {
 	}
 
 	res := mResp.Result
+	var typ data.MarketType
+	if res.Type == "spot" {
+		typ = data.Spot
+	} else if res.Type == "future" {
+		typ = data.Future
+	}
+
 	return &data.Market{
 		Bid:         res.Bid,
 		Ask:         res.Ask,
 		Last:        res.Last,
+		Type:        typ,
 		TickSize:    res.SizeIncrement,
 		MinNotional: res.MinProvideSize,
 	}, nil
@@ -103,14 +111,14 @@ func (a Api) FetchMarkets() error {
 		if m.Type == "spot" {
 			a.markets[m.Name] = Market{
 				Name:  m.Name,
-				Type:  Spot,
+				Type:  data.Spot,
 				Base:  *m.BaseCurrency,
 				Quote: *m.QuoteCurrency,
 			}
 		} else if m.Type == "future" {
 			a.markets[m.Name] = Market{
 				Name:  m.Name,
-				Type:  Future,
+				Type:  data.Future,
 				Base:  *m.Underlying,
 				Quote: "USD",
 			}
@@ -122,14 +130,7 @@ func (a Api) FetchMarkets() error {
 
 type Market struct {
 	Name  string
-	Type  MarketType
+	Type  data.MarketType
 	Base  string
 	Quote string
 }
-
-type MarketType string
-
-var (
-	Spot   MarketType = "spot"
-	Future MarketType = "future"
-)

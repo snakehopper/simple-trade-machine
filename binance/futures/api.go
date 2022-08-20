@@ -62,6 +62,7 @@ func (a Api) GetMarket(sym string) (*data.Market, error) {
 				Bid:         0, //TODO
 				Ask:         0, //TODO
 				Last:        0, //TODO
+				Type:        data.Future,
 				TickSize:    tickSize,
 				MinNotional: minNotional,
 			}, nil
