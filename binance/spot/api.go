@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"ghohoo.solutions/yt/binance/com"
 	"ghohoo.solutions/yt/internal/data"
+	"go.uber.org/zap"
 	"io/ioutil"
 	"net/url"
 	"strings"
@@ -12,11 +13,13 @@ import (
 
 type Api struct {
 	*com.Client
+	log *zap.SugaredLogger
 }
 
-func NewApi(apiKey, secret string) *Api {
+func NewApi(logger *zap.SugaredLogger, apiKey, secret string) *Api {
 	return &Api{
-		Client: com.NewClient("https://api.binance.com", apiKey, secret),
+		Client: com.NewClient(logger, "https://api.binance.com", apiKey, secret),
+		log:    logger,
 	}
 }
 
@@ -125,7 +128,6 @@ func (a Api) LimitOrder(sym string, side data.Side, px float64, qty float64, ioc
 	rounded := exch.RoundLotSize(sym, qty)
 	v.Set("quantity", fmt.Sprint(rounded))
 	v.Set("price", fmt.Sprint(px))
-	fmt.Println(v.Encode())
 	resp, err := a.Post("/api/v3/order", v, true)
 	if err != nil {
 		return err
@@ -140,7 +142,7 @@ func (a Api) LimitOrder(sym string, side data.Side, px float64, qty float64, ioc
 
 	var out OrderResp
 	if err := json.Unmarshal(bs, &out); err != nil {
-		fmt.Println(err, string(bs))
+		a.log.Info(err, string(bs))
 		return err
 	}
 
@@ -148,7 +150,7 @@ func (a Api) LimitOrder(sym string, side data.Side, px float64, qty float64, ioc
 		return fmt.Errorf("market order error: %v", out.Msg)
 	}
 
-	fmt.Println("<", string(bs))
+	a.log.Info("<", string(bs))
 	return nil
 }
 
@@ -165,7 +167,7 @@ func (a Api) MarketOrder(sym string, side data.Side, quoteQty *float64, baseQty 
 	if quoteQty != nil {
 		rounded := exch.RoundTickSize(sym, *quoteQty)
 		if rounded < exch.MinNotional(sym) {
-			fmt.Println("rounded quoteOrderQty smaller than MIN_NOTIONAL, skip place order")
+			a.log.Info("rounded quoteOrderQty smaller than MIN_NOTIONAL, skip place order")
 			return nil
 		}
 		v.Set("quoteOrderQty", fmt.Sprint(rounded))
@@ -173,7 +175,7 @@ func (a Api) MarketOrder(sym string, side data.Side, quoteQty *float64, baseQty 
 	if baseQty != nil {
 		rounded := exch.RoundLotSize(sym, *baseQty)
 		if rounded == 0 {
-			fmt.Println("rounded quantity smaller than LOT_SIZE, skip place order")
+			a.log.Info("rounded quantity smaller than LOT_SIZE, skip place order")
 			return nil
 		}
 		tk, err := a.OrderBookTicker(sym)
@@ -181,12 +183,11 @@ func (a Api) MarketOrder(sym string, side data.Side, quoteQty *float64, baseQty 
 			return err
 		}
 		if rounded*tk.BidPrice < exch.MinNotional(sym) {
-			fmt.Println("rounded quoteOrderQty smaller than MIN_NOTIONAL, skip place order")
+			a.log.Info("rounded quoteOrderQty smaller than MIN_NOTIONAL, skip place order")
 			return nil
 		}
 		v.Set("quantity", fmt.Sprint(rounded))
 	}
-	fmt.Println(v.Encode())
 	resp, err := a.Post("/api/v3/order", v, true)
 	if err != nil {
 		return err
@@ -201,7 +202,6 @@ func (a Api) MarketOrder(sym string, side data.Side, quoteQty *float64, baseQty 
 
 	var out OrderResp
 	if err := json.Unmarshal(bs, &out); err != nil {
-		fmt.Println(err, string(bs))
 		return err
 	}
 
@@ -209,6 +209,6 @@ func (a Api) MarketOrder(sym string, side data.Side, quoteQty *float64, baseQty 
 		return fmt.Errorf("market order error: %v", out.Msg)
 	}
 
-	fmt.Println("<", string(bs))
+	a.log.Info("<", string(bs))
 	return nil
 }

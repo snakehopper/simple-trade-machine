@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"ghohoo.solutions/yt/binance/com"
 	"ghohoo.solutions/yt/internal/data"
+	"go.uber.org/zap"
 	"io/ioutil"
 	"net/url"
 	"strings"
@@ -12,11 +13,13 @@ import (
 
 type Api struct {
 	*com.Client
+	log *zap.SugaredLogger
 }
 
-func NewApi(apiKey, secret string) *Api {
+func NewApi(logger *zap.SugaredLogger, apiKey, secret string) *Api {
 	return &Api{
-		Client: com.NewClient("https://fapi.binance.com", apiKey, secret),
+		Client: com.NewClient(logger, "https://fapi.binance.com", apiKey, secret),
+		log:    logger,
 	}
 }
 
@@ -100,7 +103,6 @@ func (a Api) LimitOrder(sym string, side data.Side, px float64, qty float64, ioc
 	rounded := exch.RoundLotSize(sym, qty)
 	v.Set("quantity", fmt.Sprint(rounded))
 	v.Set("price", fmt.Sprint(px))
-	fmt.Println(v.Encode())
 	resp, err := a.Post("/fapi/v1/order", v, true)
 	if err != nil {
 		return err
@@ -115,7 +117,6 @@ func (a Api) LimitOrder(sym string, side data.Side, px float64, qty float64, ioc
 
 	var out OrderResp
 	if err := json.Unmarshal(bs, &out); err != nil {
-		fmt.Println(err, string(bs))
 		return err
 	}
 
@@ -123,7 +124,7 @@ func (a Api) LimitOrder(sym string, side data.Side, px float64, qty float64, ioc
 		return fmt.Errorf("limit order error: %v", out.Msg)
 	}
 
-	fmt.Println("<", string(bs))
+	a.log.Info("<", string(bs))
 
 	return nil
 }
@@ -155,7 +156,6 @@ func (a Api) MarketOrder(sym string, side data.Side, quoteQty *float64, baseQty 
 			v.Set("quantity", fmt.Sprint(rounded))
 		}
 	}
-	fmt.Println(v.Encode())
 	resp, err := a.Post("/fapi/v1/order", v, true)
 	if err != nil {
 		return err
@@ -170,7 +170,6 @@ func (a Api) MarketOrder(sym string, side data.Side, quoteQty *float64, baseQty 
 
 	var out OrderResp
 	if err := json.Unmarshal(bs, &out); err != nil {
-		fmt.Println(err, string(bs))
 		return err
 	}
 
@@ -178,7 +177,7 @@ func (a Api) MarketOrder(sym string, side data.Side, quoteQty *float64, baseQty 
 		return fmt.Errorf("market order error: %v", out.Msg)
 	}
 
-	fmt.Println("<", string(bs))
+	a.log.Info("<", string(bs))
 
 	return nil
 }

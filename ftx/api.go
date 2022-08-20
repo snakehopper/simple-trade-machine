@@ -4,12 +4,17 @@ import (
 	"errors"
 	"fmt"
 	"ghohoo.solutions/yt/internal/data"
+	"go.uber.org/zap"
 	"math"
 	"strings"
 )
 
 type Api struct {
-	*Client
+	log        *zap.SugaredLogger
+	Api        string
+	Secret     []byte
+	Subaccount string
+	markets    map[string]Market
 }
 
 func (a Api) MaxQuoteValue(sym string) (total, free float64, err error) {
@@ -57,7 +62,7 @@ func (a Api) LimitOrder(sym string, side data.Side, px float64, qty float64, ioc
 	size := math.Abs(qty)
 	resp, err := a.PlaceOrder(sym, strings.ToLower(string(side)), px, "limit", size, false, false, false)
 	if err != nil {
-		fmt.Printf("place limit order error: %v\n", err)
+		a.log.Infof("place limit order error: %v\n", err)
 		return err
 	} else if !resp.Success {
 		return errors.New("place limit order unknown error")
@@ -82,7 +87,7 @@ func (a Api) MarketOrder(sym string, side data.Side, quoteUnit *float64, qty *fl
 	resp, err := a.PlaceOrder(sym, strings.ToLower(string(side)), 0, "market", size,
 		false, true, false)
 	if err != nil {
-		fmt.Printf("place market order error: %v\n", err)
+		a.log.Infof("place market order error: %v\n", err)
 		return err
 	} else if !resp.Success {
 		return errors.New("place order unknown error")
@@ -90,8 +95,13 @@ func (a Api) MarketOrder(sym string, side data.Side, quoteUnit *float64, qty *fl
 
 	return nil
 }
-func NewApi(apiKey, secret, subaccount string) *Api {
+
+func NewApi(log *zap.SugaredLogger, apiKey, secret, subaccount string) *Api {
 	return &Api{
-		New(apiKey, secret, subaccount),
+		log:        log,
+		Api:        apiKey,
+		Secret:     []byte(secret),
+		Subaccount: subaccount,
+		markets:    make(map[string]Market),
 	}
 }

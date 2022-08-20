@@ -8,8 +8,9 @@ require (
 )
 
 require (
-	github.com/gofrs/flock v0.8.1 // indirect
-	github.com/shopspring/decimal v1.3.1 // indirect
-	github.com/stretchr/testify v1.6.1
+	github.com/gofrs/flock v0.8.1
+	github.com/shopspring/decimal v1.3.1
+	github.com/stretchr/testify v1.7.0
+	go.uber.org/zap v1.21.0
 	golang.org/x/sys v0.0.0-20220808155132-1c4a2a72c664 // indirect
 )

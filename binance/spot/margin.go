@@ -69,7 +69,6 @@ func (a Api) MarginMarketOrder(isolated bool, sideEffect SideEffect, pair string
 		v.Set("quoteOrderQty", fmt.Sprint(*quoteOrderQty))
 	}
 	v.Set("sideEffectType", string(sideEffect))
-	fmt.Println(v.Encode())
 	resp, err := a.Post("/sapi/v1/margin/order", v, true)
 	if err != nil {
 		return nil, err
@@ -84,7 +83,6 @@ func (a Api) MarginMarketOrder(isolated bool, sideEffect SideEffect, pair string
 
 	var out OrderResp
 	if err := json.Unmarshal(bs, &out); err != nil {
-		fmt.Println(err, string(bs))
 		return nil, err
 	}
 
@@ -115,7 +113,6 @@ func (a Api) MarginAllOrders(isolated bool, sym string) ([]MarginOrderResp, erro
 
 	var out = make([]MarginOrderResp, 0)
 	if err := json.Unmarshal(bs, &out); err != nil {
-		fmt.Println(err, string(bs))
 		return nil, err
 	}
 

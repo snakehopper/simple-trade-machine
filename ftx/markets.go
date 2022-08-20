@@ -10,10 +10,10 @@ import (
 type HistoricalPrices structs.HistoricalPrices
 type Trades structs.Trades
 
-func (c *Client) GetHistoricalPrices(market string, resolution int64,
+func (a Api) GetHistoricalPrices(market string, resolution int64,
 	limit int64, startTime int64, endTime int64) (HistoricalPrices, error) {
 	var historicalPrices HistoricalPrices
-	resp, err := c._get(
+	resp, err := a._get(
 		"markets/"+market+
 			"/candles?resolution="+strconv.FormatInt(resolution, 10)+
 			"&limit="+strconv.FormatInt(limit, 10)+
@@ -28,9 +28,9 @@ func (c *Client) GetHistoricalPrices(market string, resolution int64,
 	return historicalPrices, err
 }
 
-func (c *Client) GetTrades(market string, limit int64, startTime int64, endTime int64) (Trades, error) {
+func (a Api) GetTrades(market string, limit int64, startTime int64, endTime int64) (Trades, error) {
 	var trades Trades
-	resp, err := c._get(
+	resp, err := a._get(
 		"markets/"+market+"/trades?"+
 			"&limit="+strconv.FormatInt(limit, 10)+
 			"&start_time="+strconv.FormatInt(startTime, 10)+
@@ -44,8 +44,8 @@ func (c *Client) GetTrades(market string, limit int64, startTime int64, endTime 
 	return trades, err
 }
 
-func (c *Client) GetMarket(market string) (*data.Market, error) {
-	resp, err := c._get("markets/"+market, []byte(""))
+func (a Api) GetMarket(market string) (*data.Market, error) {
+	resp, err := a._get("markets/"+market, []byte(""))
 	if err != nil {
 		fmt.Printf("Error GetMarket: %v\n", err)
 		return nil, err
@@ -71,22 +71,22 @@ type MarketInfo struct {
 }
 
 //GetTradingPair return cached symbol info
-func (c *Client) GetTradingPair(sym string) Market {
-	res, ok := c.markets[sym]
+func (a Api) GetTradingPair(sym string) Market {
+	res, ok := a.markets[sym]
 	if ok {
 		return res
 	}
 
-	if err := c.FetchMarkets(); err != nil {
+	if err := a.FetchMarkets(); err != nil {
 		fmt.Printf("fetch markets error: %v", err)
 		return Market{}
 	}
 
-	return c.markets[sym]
+	return a.markets[sym]
 }
 
-func (c *Client) FetchMarkets() error {
-	resp, err := c._get("markets", []byte(""))
+func (a Api) FetchMarkets() error {
+	resp, err := a._get("markets", []byte(""))
 	if err != nil {
 		return err
 	}
@@ -101,14 +101,14 @@ func (c *Client) FetchMarkets() error {
 
 	for _, m := range markets.Result {
 		if m.Type == "spot" {
-			c.markets[m.Name] = Market{
+			a.markets[m.Name] = Market{
 				Name:  m.Name,
 				Type:  Spot,
 				Base:  *m.BaseCurrency,
 				Quote: *m.QuoteCurrency,
 			}
 		} else if m.Type == "future" {
-			c.markets[m.Name] = Market{
+			a.markets[m.Name] = Market{
 				Name:  m.Name,
 				Type:  Future,
 				Base:  *m.Underlying,

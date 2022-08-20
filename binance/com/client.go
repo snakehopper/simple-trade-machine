@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"go.uber.org/zap"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -14,6 +15,7 @@ import (
 )
 
 type Client struct {
+	log      *zap.SugaredLogger
 	cli      *http.Client
 	endpoint string
 	apiKey   string
@@ -48,7 +50,7 @@ func (c Client) Post(path string, val url.Values, sign bool) (*http.Response, er
 		c.SignRequest(req)
 	}
 
-	fmt.Println(">", SafeReadBody(req))
+	c.log.Info(">", SafeReadBody(req))
 	return http.DefaultClient.Do(req)
 }
 
@@ -111,8 +113,9 @@ func SafeReadBody(r *http.Request) string {
 	return string(bs)
 }
 
-func NewClient(endpoint, apiKey, secret string) *Client {
+func NewClient(logger *zap.SugaredLogger, endpoint, apiKey, secret string) *Client {
 	return &Client{
+		log:      logger,
 		cli:      http.DefaultClient,
 		endpoint: endpoint,
 		apiKey:   apiKey,

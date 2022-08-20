@@ -10,6 +10,7 @@ import (
 	"github.com/GoogleCloudPlatform/functions-framework-go/functions"
 	"github.com/gofrs/flock"
 	"github.com/gorilla/mux"
+	"go.uber.org/zap"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -62,18 +63,6 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 	v := mux.Vars(r)
 	sym := strings.Trim(v["sym"], "/")
 	e := strings.ToUpper(v["exch"])
-	var exch data.Exchange
-	switch e {
-	case "FTX":
-		exch = ftx.NewApi(os.Getenv("FTX_APIKEY"), os.Getenv("FTX_SECRET"), os.Getenv("FTX_SUBACCOUNT"))
-	case "BINANCE":
-		exch = spot.NewApi(os.Getenv("BINANCE_APIKEY"), os.Getenv("BINANCE_SECRET"))
-	case "BINANCE-FUTURES", "BINANCE_FUTURES", "FAPI":
-		exch = futures.NewApi(os.Getenv("BINANCE_APIKEY"), os.Getenv("BINANCE_SECRET"))
-	default:
-		http.Error(w, "unsupported exchange:"+e, http.StatusBadRequest)
-		return
-	}
 
 	bs, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -82,41 +71,79 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	signal := data.NewAlert(string(bs))
-	fmt.Println("action: ", signal.String(), sym)
+	log := setupLogger(e, sym)
+	defer log.Sync()
+	log.Info("action: ", signal.String())
 
 	// lock to handle signal 1by1
-	fmt.Println(filepath.Glob("/tmp/*"))
+	log.Info(filepath.Glob("/tmp/*"))
 	fl := flock.New(fmt.Sprintf("/tmp/%s_%s", e, strings.ReplaceAll(sym, "/", "____")))
 	if ok, err := fl.TryLock(); !ok || err != nil {
-		fmt.Println("try lock failed", ok, err)
-		fmt.Println("waiting lock with retry context...", e, sym)
+		log.Info("try lock failed", ok, err)
+		log.Info("waiting lock with retry context...", e, sym)
 		ok, err = fl.TryLockContext(context.Background(), time.Second)
-		fmt.Println("TryLockContext return", ok, err)
+		log.Info("TryLockContext return", ok, err)
 	}
 	defer fl.Unlock()
 
+	h, err := NewSignalHandler(e, sym)
+	if err != nil {
+		http.Error(w, "unsupported exchange:"+e, http.StatusBadRequest)
+		return
+	}
+
 	switch signal {
 	case data.LONG:
-		err = longPosition(exch, sym)
+		err = h.longPosition()
 	case data.SHORT:
-		err = shortPosition(exch, sym)
+		err = h.shortPosition()
 	case data.REDUCE:
-		err = reducePosition(exch, sym)
+		err = h.reducePosition()
 	case data.CLOSE:
-		err = closePosition(exch, sym)
+		err = h.closePosition()
 	case data.STOP_LOSS:
-		err = stopLossPosition(exch, sym)
+		err = h.stopLossPosition()
 	default:
-		fmt.Println(signal, string(bs))
+		log.Info("unknown signal", signal, string(bs))
 	}
 	if err != nil {
-		fmt.Println(err.Error())
+		log.Info(err.Error())
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	}
 }
 
-func openPosition(exch data.Exchange, sym string, side data.Side) error {
-	total, free, err := exch.MaxQuoteValue(sym)
+type SignalHandler struct {
+	log    *zap.SugaredLogger
+	exch   data.Exchange
+	sym    string
+	exName string
+}
+
+func NewSignalHandler(exName, symbol string) (*SignalHandler, error) {
+	logger := setupLogger(exName, symbol)
+
+	var exch data.Exchange
+	switch exName {
+	case "FTX":
+		exch = ftx.NewApi(logger, os.Getenv("FTX_APIKEY"), os.Getenv("FTX_SECRET"), os.Getenv("FTX_SUBACCOUNT"))
+	case "BINANCE":
+		exch = spot.NewApi(logger, os.Getenv("BINANCE_APIKEY"), os.Getenv("BINANCE_SECRET"))
+	case "BINANCE-FUTURES", "BINANCE_FUTURES", "FAPI":
+		exch = futures.NewApi(logger, os.Getenv("BINANCE_APIKEY"), os.Getenv("BINANCE_SECRET"))
+	default:
+		return nil, fmt.Errorf("unsupported exchange")
+	}
+
+	return &SignalHandler{
+		log:    logger,
+		sym:    symbol,
+		exName: exName,
+		exch:   exch,
+	}, nil
+}
+
+func (h SignalHandler) openPosition(side data.Side) error {
+	total, free, err := h.exch.MaxQuoteValue(h.sym)
 	if err != nil {
 		return nil
 	}
@@ -124,25 +151,25 @@ func openPosition(exch data.Exchange, sym string, side data.Side) error {
 	pct := getEnvFloat("OPEN_PERCENT", DefaultOpenOrderPercent)
 	orderUsd := total * (pct / 100)
 	if freeUsd := free * 0.9; freeUsd < orderUsd {
-		fmt.Printf("low collateral, trim notional %v -> %v\n", orderUsd, freeUsd)
+		h.log.Infof("low collateral, trim notional %v -> %v\n", orderUsd, freeUsd)
 		orderUsd = freeUsd
 	}
 
-	market, err := exch.GetMarket(sym)
+	market, err := h.exch.GetMarket(h.sym)
 	if err != nil {
 		return err
 	}
 
 	if orderUsd < market.MinNotional {
-		fmt.Printf("order size too small (%v < %v), skip LONG action\n", orderUsd, market.MinNotional)
+		h.log.Infof("order size too small (%v < %v), skip LONG action\n", orderUsd, market.MinNotional)
 		return nil
 	}
 
-	return exch.MarketOrder(sym, side, &orderUsd, nil)
+	return h.exch.MarketOrder(h.sym, side, &orderUsd, nil)
 }
 
-func closeIfAnyPosition(exch data.Exchange, sym string) error {
-	pos, err := exch.GetPosition(sym)
+func (h SignalHandler) closeIfAnyPosition() error {
+	pos, err := h.exch.GetPosition(h.sym)
 	if err != nil {
 		return err
 	}
@@ -150,47 +177,47 @@ func closeIfAnyPosition(exch data.Exchange, sym string) error {
 		return nil
 	}
 
-	return closePosition(exch, sym)
+	return h.closePosition()
 }
 
-func longPosition(exch data.Exchange, sym string) error {
-	if err := closeIfAnyPosition(exch, sym); err != nil {
+func (h SignalHandler) longPosition() error {
+	if err := h.closeIfAnyPosition(); err != nil {
 		return err
 	}
-	return openPosition(exch, sym, data.Buy)
+	return h.openPosition(data.Buy)
 }
 
-func shortPosition(exch data.Exchange, sym string) error {
-	if err := closeIfAnyPosition(exch, sym); err != nil {
+func (h SignalHandler) shortPosition() error {
+	if err := h.closeIfAnyPosition(); err != nil {
 		return err
 	}
 
-	return openPosition(exch, sym, data.Sell)
+	return h.openPosition(data.Sell)
 }
 
-func reducePosition(exch data.Exchange, sym string) error {
+func (h SignalHandler) reducePosition() error {
 	pct := getEnvFloat("REDUCE_PERCENT", DefaultReducePositionPercent)
 
 	var err error
 	for i := 0; i < 3; i++ {
-		err = closePartialPosition(exch, sym, pct)
+		err = h.closePartialPosition(pct)
 		if err == nil {
 			return nil
 		}
-		fmt.Printf("#%d wait a second and retry\n", i)
+		h.log.Infof("#%d wait a second and retry\n", i)
 		time.Sleep(3 * time.Second)
 	}
 	return err
 }
 
-func closePartialPosition(exch data.Exchange, sym string, pct float64) error {
-	pos, err := exch.GetPosition(sym)
+func (h SignalHandler) closePartialPosition(pct float64) error {
+	pos, err := h.exch.GetPosition(h.sym)
 	if err != nil {
 		return err
 	}
 	//skip action if EMPTY position
 	if pos == 0 {
-		fmt.Println("empty position, skip close action")
+		h.log.Info("empty position, skip close action")
 		return nil
 	}
 
@@ -201,35 +228,35 @@ func closePartialPosition(exch data.Exchange, sym string, pct float64) error {
 		offsetSide = data.Buy
 	}
 	size := pos * pct / 100
-	if err := exch.MarketOrder(sym, offsetSide, nil, &size); err != nil {
-		fmt.Printf("close position error: %v\n", err)
+	if err := h.exch.MarketOrder(h.sym, offsetSide, nil, &size); err != nil {
+		h.log.Infof("close position error: %v\n", err)
 		return err
 	}
 
 	return nil
 }
 
-func closePosition(exch data.Exchange, sym string) error {
+func (h SignalHandler) closePosition() error {
 	var err error
 	for i := 0; i < 3; i++ {
-		err = closePartialPosition(exch, sym, 100)
+		err = h.closePartialPosition(100)
 		if err == nil {
 			return nil
 		}
-		fmt.Printf("#%d wait a second and retry\n", i)
+		h.log.Infof("#%d wait a second and retry\n", i)
 		time.Sleep(3 * time.Second)
 	}
 	return err
 }
 
-func stopLossPosition(exch data.Exchange, sym string) error {
+func (h SignalHandler) stopLossPosition() error {
 	var err error
 	for i := 0; i < 3; i++ {
-		err = closePartialPosition(exch, sym, 100)
+		err = h.closePartialPosition(100)
 		if err == nil {
 			return nil
 		}
-		fmt.Printf("#%d wait a second and retry\n", i)
+		h.log.Infof("#%d wait a second and retry", i)
 		time.Sleep(3 * time.Second)
 	}
 	return err

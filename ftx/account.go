@@ -8,9 +8,9 @@ import (
 type AccountInfo structs.AccountResponse
 type Positions structs.PositionResponse
 
-func (c *Client) GetAccount() (AccountInfo, error) {
+func (a Api) GetAccount() (AccountInfo, error) {
 	var acc AccountInfo
-	resp, err := c._get("account", []byte(""))
+	resp, err := a._get("account", []byte(""))
 	if err != nil {
 		fmt.Printf("Error GetAccount: %v\n", err)
 		return acc, err
@@ -19,14 +19,14 @@ func (c *Client) GetAccount() (AccountInfo, error) {
 	return acc, err
 }
 
-func (c *Client) GetPositions(showAvgPrice bool) (Positions, error) {
+func (a Api) GetPositions(showAvgPrice bool) (Positions, error) {
 	link := "positions"
 	if showAvgPrice {
 		link = fmt.Sprintf("positions?showAvgPrice=true")
 	}
 
 	var positions Positions
-	resp, err := c._get(link, []byte(""))
+	resp, err := a._get(link, []byte(""))
 	if err != nil {
 		fmt.Printf("Error GetPositions: %v\n", err)
 		return positions, err
@@ -35,9 +35,9 @@ func (c *Client) GetPositions(showAvgPrice bool) (Positions, error) {
 	return positions, err
 }
 
-func (c *Client) GetBalance(sym string) (*structs.WalletBalances, error) {
+func (a Api) GetBalance(sym string) (*structs.WalletBalances, error) {
 	var balances structs.WalletBalancesResp
-	resp, err := c._get("/wallet/balances", []byte(""))
+	resp, err := a._get("/wallet/balances", []byte(""))
 	if err != nil {
 		fmt.Printf("Error GetAccount: %v\n", err)
 		return nil, err
@@ -46,7 +46,7 @@ func (c *Client) GetBalance(sym string) (*structs.WalletBalances, error) {
 		return nil, err
 	}
 
-	pair := c.GetTradingPair(sym)
+	pair := a.GetTradingPair(sym)
 	for _, res := range balances.Result {
 		if res.Coin == pair.Base {
 			return &res, nil
