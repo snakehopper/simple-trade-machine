@@ -10,10 +10,10 @@ import (
 type HistoricalPrices structs.HistoricalPrices
 type Trades structs.Trades
 
-func (client *Client) GetHistoricalPrices(market string, resolution int64,
+func (c *Client) GetHistoricalPrices(market string, resolution int64,
 	limit int64, startTime int64, endTime int64) (HistoricalPrices, error) {
 	var historicalPrices HistoricalPrices
-	resp, err := client._get(
+	resp, err := c._get(
 		"markets/"+market+
 			"/candles?resolution="+strconv.FormatInt(resolution, 10)+
 			"&limit="+strconv.FormatInt(limit, 10)+
@@ -28,9 +28,9 @@ func (client *Client) GetHistoricalPrices(market string, resolution int64,
 	return historicalPrices, err
 }
 
-func (client *Client) GetTrades(market string, limit int64, startTime int64, endTime int64) (Trades, error) {
+func (c *Client) GetTrades(market string, limit int64, startTime int64, endTime int64) (Trades, error) {
 	var trades Trades
-	resp, err := client._get(
+	resp, err := c._get(
 		"markets/"+market+"/trades?"+
 			"&limit="+strconv.FormatInt(limit, 10)+
 			"&start_time="+strconv.FormatInt(startTime, 10)+
@@ -44,8 +44,8 @@ func (client *Client) GetTrades(market string, limit int64, startTime int64, end
 	return trades, err
 }
 
-func (client *Client) GetMarket(market string) (*data.Market, error) {
-	resp, err := client._get("markets/"+market, []byte(""))
+func (c *Client) GetMarket(market string) (*data.Market, error) {
+	resp, err := c._get("markets/"+market, []byte(""))
 	if err != nil {
 		fmt.Printf("Error GetMarket: %v\n", err)
 		return nil, err

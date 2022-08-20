@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"ghohoo.solutions/yt/binance/futures"
 	"ghohoo.solutions/yt/binance/spot"
+	"ghohoo.solutions/yt/ftx"
 	"ghohoo.solutions/yt/internal/data"
 	"github.com/GoogleCloudPlatform/functions-framework-go/functions"
 	"github.com/gofrs/flock"
@@ -64,7 +65,7 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 	var exch data.Exchange
 	switch e {
 	case "FTX":
-		exch = NewFtx(os.Getenv("FTX_APIKEY"), os.Getenv("FTX_SECRET"), os.Getenv("FTX_SUBACCOUNT"))
+		exch = ftx.NewApi(os.Getenv("FTX_APIKEY"), os.Getenv("FTX_SECRET"), os.Getenv("FTX_SUBACCOUNT"))
 	case "BINANCE":
 		exch = spot.NewApi(os.Getenv("BINANCE_APIKEY"), os.Getenv("BINANCE_SECRET"))
 	case "BINANCE-FUTURES", "BINANCE_FUTURES", "FAPI":

@@ -8,9 +8,9 @@ import (
 type AccountInfo structs.AccountResponse
 type Positions structs.PositionResponse
 
-func (client *Client) GetAccount() (AccountInfo, error) {
+func (c *Client) GetAccount() (AccountInfo, error) {
 	var acc AccountInfo
-	resp, err := client._get("account", []byte(""))
+	resp, err := c._get("account", []byte(""))
 	if err != nil {
 		fmt.Printf("Error GetAccount: %v\n", err)
 		return acc, err
@@ -19,14 +19,14 @@ func (client *Client) GetAccount() (AccountInfo, error) {
 	return acc, err
 }
 
-func (client *Client) GetPositions(showAvgPrice bool) (Positions, error) {
+func (c *Client) GetPositions(showAvgPrice bool) (Positions, error) {
 	link := "positions"
 	if showAvgPrice {
 		link = fmt.Sprintf("positions?showAvgPrice=true")
 	}
 
 	var positions Positions
-	resp, err := client._get(link, []byte(""))
+	resp, err := c._get(link, []byte(""))
 	if err != nil {
 		fmt.Printf("Error GetPositions: %v\n", err)
 		return positions, err

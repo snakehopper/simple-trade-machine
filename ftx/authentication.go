@@ -6,8 +6,8 @@ import (
 	"encoding/hex"
 )
 
-func (client *Client) sign(signaturePayload string) string {
-	mac := hmac.New(sha256.New, client.Secret)
+func (c *Client) sign(signaturePayload string) string {
+	mac := hmac.New(sha256.New, c.Secret)
 	mac.Write([]byte(signaturePayload))
 	return hex.EncodeToString(mac.Sum(nil))
 }

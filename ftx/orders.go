@@ -17,9 +17,9 @@ type OpenTriggerOrders structs.OpenTriggerOrders
 type TriggerOrderHistory structs.TriggerOrderHistory
 type Triggers structs.Triggers
 
-func (client *Client) GetOpenOrders(market string) (OpenOrders, error) {
+func (c *Client) GetOpenOrders(market string) (OpenOrders, error) {
 	var openOrders OpenOrders
-	resp, err := client._get("orders?market="+market, []byte(""))
+	resp, err := c._get("orders?market="+market, []byte(""))
 	if err != nil {
 		fmt.Println("Error GetOpenOrders", err)
 		return openOrders, err
@@ -28,7 +28,7 @@ func (client *Client) GetOpenOrders(market string) (OpenOrders, error) {
 	return openOrders, err
 }
 
-func (client *Client) GetOrderHistory(market string, startTime float64, endTime float64, limit int64) (OrderHistory, error) {
+func (c *Client) GetOrderHistory(market string, startTime float64, endTime float64, limit int64) (OrderHistory, error) {
 	var orderHistory OrderHistory
 	requestBody, err := json.Marshal(map[string]interface{}{
 		"market":     market,
@@ -40,7 +40,7 @@ func (client *Client) GetOrderHistory(market string, startTime float64, endTime 
 		fmt.Println("Error GetOrderHistory", err)
 		return orderHistory, err
 	}
-	resp, err := client._get("orders/history?market="+market, requestBody)
+	resp, err := c._get("orders/history?market="+market, requestBody)
 	if err != nil {
 		fmt.Println("Error GetOrderHistory", err)
 		return orderHistory, err
@@ -49,14 +49,14 @@ func (client *Client) GetOrderHistory(market string, startTime float64, endTime 
 	return orderHistory, err
 }
 
-func (client *Client) GetOpenTriggerOrders(market string, _type string) (OpenTriggerOrders, error) {
+func (c *Client) GetOpenTriggerOrders(market string, _type string) (OpenTriggerOrders, error) {
 	var openTriggerOrders OpenTriggerOrders
 	requestBody, err := json.Marshal(map[string]string{"market": market, "type": _type})
 	if err != nil {
 		fmt.Println("Error GetOpenTriggerOrders", err)
 		return openTriggerOrders, err
 	}
-	resp, err := client._get("conditional_orders?market="+market, requestBody)
+	resp, err := c._get("conditional_orders?market="+market, requestBody)
 	if err != nil {
 		fmt.Println("Error GetOpenTriggerOrders", err)
 		return openTriggerOrders, err
@@ -65,9 +65,9 @@ func (client *Client) GetOpenTriggerOrders(market string, _type string) (OpenTri
 	return openTriggerOrders, err
 }
 
-func (client *Client) GetTriggers(orderId string) (Triggers, error) {
+func (c *Client) GetTriggers(orderId string) (Triggers, error) {
 	var trigger Triggers
-	resp, err := client._get("conditional_orders/"+orderId+"/triggers", []byte(""))
+	resp, err := c._get("conditional_orders/"+orderId+"/triggers", []byte(""))
 	if err != nil {
 		fmt.Println("Error GetTriggers", err)
 		return trigger, err
@@ -76,7 +76,7 @@ func (client *Client) GetTriggers(orderId string) (Triggers, error) {
 	return trigger, err
 }
 
-func (client *Client) GetTriggerOrdersHistory(market string, startTime float64, endTime float64, limit int64) (TriggerOrderHistory, error) {
+func (c *Client) GetTriggerOrdersHistory(market string, startTime float64, endTime float64, limit int64) (TriggerOrderHistory, error) {
 	var triggerOrderHistory TriggerOrderHistory
 	requestBody, err := json.Marshal(map[string]interface{}{
 		"market":     market,
@@ -87,7 +87,7 @@ func (client *Client) GetTriggerOrdersHistory(market string, startTime float64, 
 		fmt.Println("Error GetTriggerOrdersHistory", err)
 		return triggerOrderHistory, err
 	}
-	resp, err := client._get("conditional_orders/history?market="+market, requestBody)
+	resp, err := c._get("conditional_orders/history?market="+market, requestBody)
 	if err != nil {
 		fmt.Println("Error GetTriggerOrdersHistory", err)
 		return triggerOrderHistory, err
@@ -96,7 +96,7 @@ func (client *Client) GetTriggerOrdersHistory(market string, startTime float64, 
 	return triggerOrderHistory, err
 }
 
-func (client *Client) PlaceOrder(market string, side string, price float64,
+func (c *Client) PlaceOrder(market string, side string, price float64,
 	_type string, size float64, reduceOnly bool, ioc bool, postOnly bool) (NewOrderResponse, error) {
 	var newOrderResponse NewOrderResponse
 	po := NewOrder{
@@ -118,7 +118,7 @@ func (client *Client) PlaceOrder(market string, side string, price float64,
 	}
 
 	fmt.Println(">", string(requestBody))
-	resp, err := client._post("orders", requestBody)
+	resp, err := c._post("orders", requestBody)
 	if err != nil {
 		fmt.Println("post PlaceOrder error:", err)
 		return newOrderResponse, err
@@ -128,7 +128,7 @@ func (client *Client) PlaceOrder(market string, side string, price float64,
 	return newOrderResponse, err
 }
 
-func (client *Client) PlaceTriggerOrder(market string, side string, size float64,
+func (c *Client) PlaceTriggerOrder(market string, side string, size float64,
 	_type string, reduceOnly bool, retryUntilFilled bool, triggerPrice float64,
 	orderPrice float64, trailValue float64) (NewTriggerOrderResponse, error) {
 
@@ -184,7 +184,7 @@ func (client *Client) PlaceTriggerOrder(market string, side string, size float64
 		fmt.Println("Error PlaceTriggerOrder", err)
 		return newTriggerOrderResponse, err
 	}
-	resp, err := client._post("conditional_orders", requestBody)
+	resp, err := c._post("conditional_orders", requestBody)
 	if err != nil {
 		fmt.Println("Error PlaceTriggerOrder", err)
 		return newTriggerOrderResponse, err
@@ -193,10 +193,10 @@ func (client *Client) PlaceTriggerOrder(market string, side string, size float64
 	return newTriggerOrderResponse, err
 }
 
-func (client *Client) CancelOrder(orderId int64) (Response, error) {
+func (c *Client) CancelOrder(orderId int64) (Response, error) {
 	var deleteResponse Response
 	id := strconv.FormatInt(orderId, 10)
-	resp, err := client._delete("orders/"+id, []byte(""))
+	resp, err := c._delete("orders/"+id, []byte(""))
 	if err != nil {
 		fmt.Println("Error CancelOrder", err)
 		return deleteResponse, err
@@ -205,10 +205,10 @@ func (client *Client) CancelOrder(orderId int64) (Response, error) {
 	return deleteResponse, err
 }
 
-func (client *Client) CancelTriggerOrder(orderId int64) (Response, error) {
+func (c *Client) CancelTriggerOrder(orderId int64) (Response, error) {
 	var deleteResponse Response
 	id := strconv.FormatInt(orderId, 10)
-	resp, err := client._delete("conditional_orders/"+id, []byte(""))
+	resp, err := c._delete("conditional_orders/"+id, []byte(""))
 	if err != nil {
 		fmt.Println("Error CancelTriggerOrder", err)
 		return deleteResponse, err
@@ -217,9 +217,9 @@ func (client *Client) CancelTriggerOrder(orderId int64) (Response, error) {
 	return deleteResponse, err
 }
 
-func (client *Client) CancelAllOrders() (Response, error) {
+func (c *Client) CancelAllOrders() (Response, error) {
 	var deleteResponse Response
-	resp, err := client._delete("orders", []byte(""))
+	resp, err := c._delete("orders", []byte(""))
 	if err != nil {
 		fmt.Println("Error CancelAllOrders", err)
 		return deleteResponse, err

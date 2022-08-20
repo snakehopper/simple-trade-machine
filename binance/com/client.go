@@ -48,6 +48,7 @@ func (c Client) Post(path string, val url.Values, sign bool) (*http.Response, er
 		c.SignRequest(req)
 	}
 
+	fmt.Println(">", SafeReadBody(req))
 	return http.DefaultClient.Do(req)
 }
 

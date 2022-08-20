@@ -1,20 +1,19 @@
-package function
+package ftx
 
 import (
 	"errors"
 	"fmt"
-	"ghohoo.solutions/yt/ftx"
 	"ghohoo.solutions/yt/internal/data"
 	"math"
 	"strings"
 )
 
-type Client struct {
-	*ftx.Client
+type Api struct {
+	*Client
 }
 
-func (c Client) MaxQuoteValue(sym string) (total, free float64, err error) {
-	acc, err := c.GetAccount()
+func (a Api) MaxQuoteValue(sym string) (total, free float64, err error) {
+	acc, err := a.GetAccount()
 	if err != nil {
 		return
 	} else if !acc.Success {
@@ -28,16 +27,16 @@ func (c Client) MaxQuoteValue(sym string) (total, free float64, err error) {
 	return
 }
 
-func (c Client) GetPosition(sym string) (float64, error) {
-	switch c.GetTradingPair(sym).Type {
-	case ftx.Spot:
-		bal, err := c.GetBalance(sym)
+func (a Api) GetPosition(sym string) (float64, error) {
+	switch a.GetTradingPair(sym).Type {
+	case Spot:
+		bal, err := a.GetBalance(sym)
 		if err != nil {
 			return 0, err
 		}
 		return bal.Free, nil
-	case ftx.Future:
-		acc, err := c.GetAccount()
+	case Future:
+		acc, err := a.GetAccount()
 		if err != nil {
 			return 0, err
 		} else if !acc.Success {
@@ -54,9 +53,9 @@ func (c Client) GetPosition(sym string) (float64, error) {
 	}
 }
 
-func (c Client) LimitOrder(sym string, side data.Side, px float64, qty float64, ioc bool, postOnly bool) error {
+func (a Api) LimitOrder(sym string, side data.Side, px float64, qty float64, ioc bool, postOnly bool) error {
 	size := math.Abs(qty)
-	resp, err := c.PlaceOrder(sym, strings.ToLower(string(side)), px, "limit", size, false, false, false)
+	resp, err := a.PlaceOrder(sym, strings.ToLower(string(side)), px, "limit", size, false, false, false)
 	if err != nil {
 		fmt.Printf("place limit order error: %v\n", err)
 		return err
@@ -67,12 +66,12 @@ func (c Client) LimitOrder(sym string, side data.Side, px float64, qty float64, 
 	return nil
 }
 
-func (c Client) MarketOrder(sym string, side data.Side, quoteUnit *float64, qty *float64) error {
+func (a Api) MarketOrder(sym string, side data.Side, quoteUnit *float64, qty *float64) error {
 	var size float64
 	if qty != nil {
 		size = math.Abs(*qty)
 	} else if quoteUnit != nil {
-		m, err := c.GetMarket(sym)
+		m, err := a.GetMarket(sym)
 		if err != nil {
 			return fmt.Errorf("get price error when MarketOrder: %w", err)
 		}
@@ -80,7 +79,7 @@ func (c Client) MarketOrder(sym string, side data.Side, quoteUnit *float64, qty 
 	} else {
 		return fmt.Errorf("either px or qty should defined")
 	}
-	resp, err := c.PlaceOrder(sym, strings.ToLower(string(side)), 0, "market", size,
+	resp, err := a.PlaceOrder(sym, strings.ToLower(string(side)), 0, "market", size,
 		false, true, false)
 	if err != nil {
 		fmt.Printf("place market order error: %v\n", err)
@@ -91,8 +90,8 @@ func (c Client) MarketOrder(sym string, side data.Side, quoteUnit *float64, qty 
 
 	return nil
 }
-func NewFtx(apiKey, secret, subaccount string) *Client {
-	return &Client{
-		ftx.New(apiKey, secret, subaccount),
+func NewApi(apiKey, secret, subaccount string) *Api {
+	return &Api{
+		New(apiKey, secret, subaccount),
 	}
 }

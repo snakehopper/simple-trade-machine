@@ -12,9 +12,9 @@ type Response structs.Response
 type SubaccountBalances structs.SubaccountBalances
 type TransferSubaccounts structs.TransferSubaccounts
 
-func (client *Client) GetSubaccounts() (SubaccountsList, error) {
+func (c *Client) GetSubaccounts() (SubaccountsList, error) {
 	var subaccounts SubaccountsList
-	resp, err := client._get("subaccounts", []byte(""))
+	resp, err := c._get("subaccounts", []byte(""))
 	if err != nil {
 		fmt.Printf("Error GetSubaccounts: %v\n", err)
 		return subaccounts, err
@@ -23,14 +23,14 @@ func (client *Client) GetSubaccounts() (SubaccountsList, error) {
 	return subaccounts, err
 }
 
-func (client *Client) CreateSubaccount(nickname string) (Subaccount, error) {
+func (c *Client) CreateSubaccount(nickname string) (Subaccount, error) {
 	var subaccount Subaccount
 	requestBody, err := json.Marshal(map[string]string{"nickname": nickname})
 	if err != nil {
 		fmt.Printf("Error CreateSubaccount: %v\n", err)
 		return subaccount, err
 	}
-	resp, err := client._post("subaccounts", requestBody)
+	resp, err := c._post("subaccounts", requestBody)
 	if err != nil {
 		fmt.Printf("Error CreateSubaccount: %v\n", err)
 		return subaccount, err
@@ -39,14 +39,14 @@ func (client *Client) CreateSubaccount(nickname string) (Subaccount, error) {
 	return subaccount, err
 }
 
-func (client *Client) ChangeSubaccountName(nickname string, newNickname string) (Response, error) {
+func (c *Client) ChangeSubaccountName(nickname string, newNickname string) (Response, error) {
 	var changeSubaccount Response
 	requestBody, err := json.Marshal(map[string]string{"nickname": nickname, "newNickname": newNickname})
 	if err != nil {
 		fmt.Printf("Error ChangeSubaccountName: %v\n", err)
 		return changeSubaccount, err
 	}
-	resp, err := client._post("subaccounts/update_name", requestBody)
+	resp, err := c._post("subaccounts/update_name", requestBody)
 	if err != nil {
 		fmt.Printf("Error ChangeSubaccountName: %v\n", err)
 		return changeSubaccount, err
@@ -55,14 +55,14 @@ func (client *Client) ChangeSubaccountName(nickname string, newNickname string) 
 	return changeSubaccount, err
 }
 
-func (client *Client) DeleteSubaccount(nickname string) (Response, error) {
+func (c *Client) DeleteSubaccount(nickname string) (Response, error) {
 	var deleteSubaccount Response
 	requestBody, err := json.Marshal(map[string]string{"nickname": nickname})
 	if err != nil {
 		fmt.Printf("Error DeleteSubaccount: %v\n", err)
 		return deleteSubaccount, err
 	}
-	resp, err := client._delete("subaccounts", requestBody)
+	resp, err := c._delete("subaccounts", requestBody)
 	if err != nil {
 		fmt.Printf("Error DeleteSubaccount: %v\n", err)
 		return deleteSubaccount, err
@@ -71,9 +71,9 @@ func (client *Client) DeleteSubaccount(nickname string) (Response, error) {
 	return deleteSubaccount, err
 }
 
-func (client *Client) GetSubaccountBalances(nickname string) (SubaccountBalances, error) {
+func (c *Client) GetSubaccountBalances(nickname string) (SubaccountBalances, error) {
 	var subaccountBalances SubaccountBalances
-	resp, err := client._get("subaccounts/"+nickname+"/balances", []byte(""))
+	resp, err := c._get("subaccounts/"+nickname+"/balances", []byte(""))
 	if err != nil {
 		fmt.Printf("Error SubaccountBalances: %v\n", err)
 		return subaccountBalances, err
@@ -82,7 +82,7 @@ func (client *Client) GetSubaccountBalances(nickname string) (SubaccountBalances
 	return subaccountBalances, err
 }
 
-func (client *Client) TransferSubaccounts(coin string, size float64, source string, destination string) (TransferSubaccounts, error) {
+func (c *Client) TransferSubaccounts(coin string, size float64, source string, destination string) (TransferSubaccounts, error) {
 	var transferSubaccounts TransferSubaccounts
 	requestBody, err := json.Marshal(map[string]interface{}{
 		"coin":        coin,
@@ -94,7 +94,7 @@ func (client *Client) TransferSubaccounts(coin string, size float64, source stri
 		fmt.Printf("Error TransferSubaccounts: %v\n", err)
 		return transferSubaccounts, err
 	}
-	resp, err := client._post("subaccounts/transfer", requestBody)
+	resp, err := c._post("subaccounts/transfer", requestBody)
 	if err != nil {
 		fmt.Printf("Error TransferSubaccounts: %v\n", err)
 		return transferSubaccounts, err
