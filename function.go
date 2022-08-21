@@ -70,7 +70,7 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	signal := data.NewAlert(string(bs))
+	signal := NewSignal(string(bs))
 	log := setupLogger(e, sym)
 	log.Info("action: ", signal.String())
 
@@ -92,15 +92,15 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	switch signal {
-	case data.LONG:
+	case LONG:
 		err = h.longPosition()
-	case data.SHORT:
+	case SHORT:
 		err = h.shortPosition()
-	case data.REDUCE:
+	case REDUCE:
 		err = h.reducePosition()
-	case data.CLOSE:
+	case CLOSE:
 		err = h.closePosition()
-	case data.STOP_LOSS:
+	case STOP_LOSS:
 		err = h.stopLossPosition()
 	default:
 		log.Infof("unknown signal:%v data:'%s'", signal, string(bs))
