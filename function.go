@@ -37,12 +37,12 @@ var whitelist = NewWhitelist()
 
 func validateEnv() {
 	if v, ok := os.LookupEnv("OPEN_PERCENT"); ok {
-		if _, err := strconv.Atoi(v); err != nil {
+		if _, err := strconv.ParseFloat(v, 64); err != nil {
 			panic(err)
 		}
 	}
 	if v, ok := os.LookupEnv("REDUCE_PERCENT"); ok {
-		if _, err := strconv.Atoi(v); err != nil {
+		if _, err := strconv.ParseFloat(v, 64); err != nil {
 			panic(err)
 		}
 	}
@@ -72,7 +72,6 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 
 	signal := data.NewAlert(string(bs))
 	log := setupLogger(e, sym)
-	defer log.Sync()
 	log.Info("action: ", signal.String())
 
 	// lock to handle signal 1by1
