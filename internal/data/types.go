@@ -49,14 +49,12 @@ func NewAlert(s string) Alert {
 	}
 
 	switch msg.Signal {
-	case "空轉多訊號", "多方訊號":
+	case "空轉多訊號", "多方訊號", "空方平倉訊號":
 		return LONG
-	case "多轉空訊號", "空方訊號":
+	case "多轉空訊號", "空方訊號", "多方平倉訊號":
 		return SHORT
 	case "多方減倉訊號", "空方減倉訊號":
 		return REDUCE
-	case "多方平倉訊號", "空方平倉訊號":
-		return CLOSE
 	case "多方停損訊號", "空方停損訊號":
 		return STOP_LOSS
 	default:
