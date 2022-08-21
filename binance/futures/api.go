@@ -7,6 +7,7 @@ import (
 	"ghohoo.solutions/yt/internal/data"
 	"go.uber.org/zap"
 	"io/ioutil"
+	"math"
 	"net/url"
 	"strings"
 )
@@ -151,7 +152,7 @@ func (a Api) MarketOrder(sym string, side data.Side, quoteQty *float64, baseQty 
 	v.Set("type", "MARKET")
 
 	if baseQty != nil {
-		rounded := exch.RoundLotSize(sym, *baseQty)
+		rounded := exch.RoundLotSize(sym, math.Abs(*baseQty))
 		v.Set("quantity", fmt.Sprint(rounded))
 	} else {
 		tk, err := a.OrderBookTicker(sym)
