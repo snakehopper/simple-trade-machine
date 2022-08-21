@@ -65,8 +65,9 @@ func NewAlert(s string) Alert {
 
 type Exchange interface {
 	//MaxQuoteValue return order available to quote, e.g. free collateral * leverage
+	//Spot instrument might return without leverage
 	//sym provided for isolated margin account
-	MaxQuoteValue(sym string) (total, free float64, err error) // e.g. collateral * leverage
+	MaxQuoteValue(sym string) (total, free float64, err error)
 
 	//GetPair return trading pair static info, which always can be cached
 	GetPair(sym string) (*Pair, error)

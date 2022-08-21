@@ -32,17 +32,7 @@ func (a Api) MaxQuoteValue(sym string) (total, free float64, err error) {
 		return
 	}
 
-	exch, err := a.ExchangeInfo(sym)
-	if err != nil {
-		return
-	}
-	var quote string
-	if s := exch.Symbols[0]; s.Symbol != sym {
-		err = fmt.Errorf("exchange info symbol not match: %+v", s)
-		return
-	} else {
-		quote = s.QuoteAsset
-	}
+	quote := a.GetTradingPair(sym).Quote
 	for _, bal := range acc.Balances {
 		if bal.Asset == quote {
 			free = bal.Free

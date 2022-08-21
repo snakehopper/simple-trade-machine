@@ -27,6 +27,11 @@ func (a Api) MaxQuoteValue(sym string) (total, free float64, err error) {
 	}
 
 	res := acc.Result
+	if a.GetTradingPair(sym).IsSpot() {
+		total, free = res.Collateral, res.FreeCollateral
+		return
+	}
+
 	total = res.Collateral * res.Leverage
 	free = res.FreeCollateral * res.Leverage
 	return
