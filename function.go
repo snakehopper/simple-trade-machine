@@ -148,10 +148,6 @@ func (h SignalHandler) openPosition(side data.Side) error {
 		return err
 	}
 
-	if market.Type == data.Spot && side == data.Sell {
-		return h.closeIfAnyPosition()
-	}
-
 	total, free, err := h.exch.MaxQuoteValue(h.sym)
 	if err != nil {
 		return nil
@@ -195,6 +191,13 @@ func (h SignalHandler) longPosition() error {
 func (h SignalHandler) shortPosition() error {
 	if err := h.closeIfAnyPosition(); err != nil {
 		return err
+	}
+
+	if p, err := h.exch.GetPair(h.sym); err != nil {
+		return err
+	} else if p.IsSpot() {
+		h.log.Info("Spot not to short")
+		return nil
 	}
 
 	return h.openPosition(data.Sell)

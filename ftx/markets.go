@@ -44,53 +44,19 @@ func (a Api) GetTrades(market string, limit int64, startTime int64, endTime int6
 	return trades, err
 }
 
-func (a Api) GetMarket(market string) (*data.Market, error) {
-	resp, err := a._get("markets/"+market, []byte(""))
-	if err != nil {
-		fmt.Printf("Error GetMarket: %v\n", err)
-		return nil, err
-	}
-	var mResp structs.MarketResponse
-	err = _processResponse(resp, &mResp)
-	if err != nil {
-		return nil, err
-	}
-
-	res := mResp.Result
-	var typ data.MarketType
-	if res.Type == "spot" {
-		typ = data.Spot
-	} else if res.Type == "future" {
-		typ = data.Future
-	}
-
-	return &data.Market{
-		Bid:         res.Bid,
-		Ask:         res.Ask,
-		Last:        res.Last,
-		Type:        typ,
-		TickSize:    res.SizeIncrement,
-		MinNotional: res.MinProvideSize,
-	}, nil
-}
-
-type MarketInfo struct {
-	data map[string]Market
-}
-
 //GetTradingPair return cached symbol info
-func (a Api) GetTradingPair(sym string) Market {
-	res, ok := a.markets[sym]
+func (a Api) GetTradingPair(sym string) data.Pair {
+	res, ok := khMarket[sym]
 	if ok {
 		return res
 	}
 
 	if err := a.FetchMarkets(); err != nil {
-		fmt.Printf("fetch markets error: %v", err)
-		return Market{}
+		a.log.Warnf("fetch markets error: %v", err)
+		return data.Pair{}
 	}
 
-	return a.markets[sym]
+	return khMarket[sym]
 }
 
 func (a Api) FetchMarkets() error {
@@ -109,14 +75,14 @@ func (a Api) FetchMarkets() error {
 
 	for _, m := range markets.Result {
 		if m.Type == "spot" {
-			a.markets[m.Name] = Market{
+			khMarket[m.Name] = data.Pair{
 				Name:  m.Name,
 				Type:  data.Spot,
 				Base:  *m.BaseCurrency,
 				Quote: *m.QuoteCurrency,
 			}
 		} else if m.Type == "future" {
-			a.markets[m.Name] = Market{
+			khMarket[m.Name] = data.Pair{
 				Name:  m.Name,
 				Type:  data.Future,
 				Base:  *m.Underlying,
@@ -128,9 +94,4 @@ func (a Api) FetchMarkets() error {
 	return nil
 }
 
-type Market struct {
-	Name  string
-	Type  data.MarketType
-	Base  string
-	Quote string
-}
+var khMarket = make(map[string]data.Pair)

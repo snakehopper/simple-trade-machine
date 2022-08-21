@@ -82,6 +82,15 @@ func (a Api) GetMarket(sym string) (*data.Market, error) {
 	return nil, fmt.Errorf("symbol %v not found", sym)
 }
 
+func (a Api) GetPair(sym string) (*data.Pair, error) {
+	p := a.GetTradingPair(sym)
+	if p.Name == "" {
+		return nil, fmt.Errorf("invalid symbol")
+	}
+
+	return &p, nil
+}
+
 func (a Api) GetPosition(sym string) (float64, error) {
 	acc, err := a.AccountInfo()
 	if err != nil {

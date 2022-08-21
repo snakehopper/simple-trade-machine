@@ -3,6 +3,7 @@ package spot
 import (
 	"encoding/json"
 	"fmt"
+	"ghohoo.solutions/yt/internal/data"
 	"io/ioutil"
 	"net/url"
 	"strings"
@@ -92,3 +93,38 @@ func (a Api) AccountInfo(sym ...string) (*AccountResp, error) {
 
 	return &out, nil
 }
+
+//GetTradingPair return cached symbol info
+func (a Api) GetTradingPair(sym string) data.Pair {
+	res, ok := khMarket[sym]
+	if ok {
+		return res
+	}
+
+	if err := a.FetchMarkets(); err != nil {
+		a.log.Warnf("fetch markets error: %v", err)
+		return data.Pair{}
+	}
+
+	return khMarket[sym]
+}
+
+func (a Api) FetchMarkets() error {
+	ex, err := a.ExchangeInfo()
+	if err != nil {
+		return err
+	}
+
+	for _, s := range ex.Symbols {
+		khMarket[s.Symbol] = data.Pair{
+			Type:  data.Spot,
+			Name:  s.Symbol,
+			Base:  s.BaseAsset,
+			Quote: s.QuoteAsset,
+		}
+	}
+
+	return nil
+}
+
+var khMarket = make(map[string]data.Pair)

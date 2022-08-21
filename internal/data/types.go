@@ -68,6 +68,9 @@ type Exchange interface {
 	//sym provided for isolated margin account
 	MaxQuoteValue(sym string) (total, free float64, err error) // e.g. collateral * leverage
 
+	//GetPair return trading pair static info, which always can be cached
+	GetPair(sym string) (*Pair, error)
+
 	GetMarket(sym string) (*Market, error)
 
 	GetPosition(sym string) (float64, error)
@@ -97,3 +100,18 @@ var (
 	Spot   MarketType = "spot"
 	Future MarketType = "future"
 )
+
+type Pair struct {
+	Name  string
+	Type  MarketType
+	Base  string
+	Quote string
+}
+
+func (p Pair) IsFuture() bool {
+	return p.Type == Future
+}
+
+func (p Pair) IsSpot() bool {
+	return p.Type == Spot
+}

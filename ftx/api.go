@@ -3,6 +3,7 @@ package ftx
 import (
 	"errors"
 	"fmt"
+	"ghohoo.solutions/yt/ftx/structs"
 	"ghohoo.solutions/yt/internal/data"
 	"go.uber.org/zap"
 	"math"
@@ -14,7 +15,6 @@ type Api struct {
 	Api        string
 	Secret     []byte
 	Subaccount string
-	markets    map[string]Market
 }
 
 func (a Api) MaxQuoteValue(sym string) (total, free float64, err error) {
@@ -56,6 +56,45 @@ func (a Api) GetPosition(sym string) (float64, error) {
 	default:
 		return 0, fmt.Errorf("unknown market: %s", sym)
 	}
+}
+
+func (a Api) GetMarket(market string) (*data.Market, error) {
+	resp, err := a._get("markets/"+market, []byte(""))
+	if err != nil {
+		fmt.Printf("Error GetMarket: %v\n", err)
+		return nil, err
+	}
+	var mResp structs.MarketResponse
+	err = _processResponse(resp, &mResp)
+	if err != nil {
+		return nil, err
+	}
+
+	res := mResp.Result
+	var typ data.MarketType
+	if res.Type == "spot" {
+		typ = data.Spot
+	} else if res.Type == "future" {
+		typ = data.Future
+	}
+
+	return &data.Market{
+		Bid:         res.Bid,
+		Ask:         res.Ask,
+		Last:        res.Last,
+		Type:        typ,
+		TickSize:    res.SizeIncrement,
+		MinNotional: res.MinProvideSize,
+	}, nil
+}
+
+func (a Api) GetPair(sym string) (*data.Pair, error) {
+	p := a.GetTradingPair(sym)
+	if p.Name == "" {
+		return nil, fmt.Errorf("invalid symbol")
+	}
+
+	return &p, nil
 }
 
 func (a Api) LimitOrder(sym string, side data.Side, px float64, qty float64, ioc bool, postOnly bool) error {
@@ -102,6 +141,5 @@ func NewApi(log *zap.SugaredLogger, apiKey, secret, subaccount string) *Api {
 		Api:        apiKey,
 		Secret:     []byte(secret),
 		Subaccount: subaccount,
-		markets:    make(map[string]Market),
 	}
 }
