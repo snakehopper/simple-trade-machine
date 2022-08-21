@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -52,7 +53,7 @@ func _processResponse(resp *http.Response, result interface{}) error {
 		fmt.Printf("Error processing response: %v\n", err)
 		return err
 	}
-	fmt.Println("<", string(body))
+	fmt.Println("<", strings.TrimSpace(string(body)))
 	err = json.Unmarshal(body, result)
 	if err != nil {
 		fmt.Printf("Error processing response: %v\n", err)

@@ -143,7 +143,7 @@ func (a Api) LimitOrder(sym string, side data.Side, px float64, qty float64, ioc
 
 	var out OrderResp
 	if err := json.Unmarshal(bs, &out); err != nil {
-		a.log.Info(err, string(bs))
+		a.log.Infof("unmarshal OrderResp err:%v payload:%v", err, strings.TrimSpace(string(bs)))
 		return err
 	}
 
@@ -151,7 +151,7 @@ func (a Api) LimitOrder(sym string, side data.Side, px float64, qty float64, ioc
 		return fmt.Errorf("market order error: %v", out.Msg)
 	}
 
-	a.log.Info("<", string(bs))
+	a.log.Info("<", strings.TrimSpace(string(bs)))
 	return nil
 }
 
@@ -210,6 +210,6 @@ func (a Api) MarketOrder(sym string, side data.Side, quoteQty *float64, baseQty 
 		return fmt.Errorf("market order error: %v", out.Msg)
 	}
 
-	a.log.Info("<", string(bs))
+	a.log.Info("<", strings.TrimSpace(string(bs)))
 	return nil
 }

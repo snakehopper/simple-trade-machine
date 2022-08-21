@@ -79,10 +79,10 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 	log.Info(filepath.Glob("/tmp/*"))
 	fl := flock.New(fmt.Sprintf("/tmp/%s_%s", e, strings.ReplaceAll(sym, "/", "____")))
 	if ok, err := fl.TryLock(); !ok || err != nil {
-		log.Info("try lock failed", ok, err)
-		log.Info("waiting lock with retry context...", e, sym)
+		log.Infof("try lock failed. ok=%v err=%v", ok, err)
+		log.Info("waiting lock with retry context...")
 		ok, err = fl.TryLockContext(context.Background(), time.Second)
-		log.Info("TryLockContext return", ok, err)
+		log.Infof("TryLockContext return %v, %v", ok, err)
 	}
 	defer fl.Unlock()
 
@@ -104,7 +104,7 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 	case data.STOP_LOSS:
 		err = h.stopLossPosition()
 	default:
-		log.Info("unknown signal", signal, string(bs))
+		log.Infof("unknown signal:%v data:'%s'", signal, string(bs))
 	}
 	if err != nil {
 		log.Info(err.Error())
@@ -160,12 +160,12 @@ func (h SignalHandler) openPosition(side data.Side) error {
 	pct := getEnvFloat("OPEN_PERCENT", DefaultOpenOrderPercent)
 	orderUsd := total * (pct / 100)
 	if freeUsd := free * 0.9; freeUsd < orderUsd {
-		h.log.Infof("low collateral, trim notional %v -> %v\n", orderUsd, freeUsd)
+		h.log.Infof("low collateral, trim notional %v -> %v", orderUsd, freeUsd)
 		orderUsd = freeUsd
 	}
 
 	if orderUsd < market.MinNotional {
-		h.log.Infof("order size too small (%v < %v), skip %v action\n", orderUsd, side, market.MinNotional)
+		h.log.Infof("order size too small (%v < %v), skip %v action", orderUsd, side, market.MinNotional)
 		return nil
 	}
 
@@ -209,7 +209,7 @@ func (h SignalHandler) reducePosition() error {
 		if err == nil {
 			return nil
 		}
-		h.log.Infof("#%d wait a second and retry\n", i)
+		h.log.Infof("#%d wait a second and retry", i)
 		time.Sleep(3 * time.Second)
 	}
 	return err
@@ -234,7 +234,7 @@ func (h SignalHandler) closePartialPosition(pct float64) error {
 	}
 	size := pos * pct / 100
 	if err := h.exch.MarketOrder(h.sym, offsetSide, nil, &size); err != nil {
-		h.log.Infof("close position error: %v\n", err)
+		h.log.Infof("close position error: %v", err)
 		return err
 	}
 
@@ -248,7 +248,7 @@ func (h SignalHandler) closePosition() error {
 		if err == nil {
 			return nil
 		}
-		h.log.Info("#", i, "#%d err:%v, wait a second and retry", i, err)
+		h.log.Infof("#%d err:%v, wait a second and retry", i, err)
 		time.Sleep(3 * time.Second)
 	}
 	return err
@@ -261,7 +261,7 @@ func (h SignalHandler) stopLossPosition() error {
 		if err == nil {
 			return nil
 		}
-		h.log.Infof("#%d wait a second and retry", i)
+		h.log.Infof("#%d err:%v wait a second and retry", i, err)
 		time.Sleep(3 * time.Second)
 	}
 	return err

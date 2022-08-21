@@ -125,7 +125,7 @@ func (a Api) LimitOrder(sym string, side data.Side, px float64, qty float64, ioc
 		return fmt.Errorf("limit order error: %v", out.Msg)
 	}
 
-	a.log.Info("<", string(bs))
+	a.log.Info("<", strings.TrimSpace(string(bs)))
 
 	return nil
 }
@@ -178,7 +178,7 @@ func (a Api) MarketOrder(sym string, side data.Side, quoteQty *float64, baseQty 
 		return fmt.Errorf("market order error: %v", out.Msg)
 	}
 
-	a.log.Info("<", string(bs))
+	a.log.Info("<", strings.TrimSpace(string(bs)))
 
 	return nil
 }

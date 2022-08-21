@@ -62,7 +62,7 @@ func (a Api) LimitOrder(sym string, side data.Side, px float64, qty float64, ioc
 	size := math.Abs(qty)
 	resp, err := a.PlaceOrder(sym, strings.ToLower(string(side)), px, "limit", size, false, false, false)
 	if err != nil {
-		a.log.Infof("place limit order error: %v\n", err)
+		a.log.Infof("place limit order error: %v", err)
 		return err
 	} else if !resp.Success {
 		return errors.New("place limit order unknown error")
@@ -87,7 +87,7 @@ func (a Api) MarketOrder(sym string, side data.Side, quoteUnit *float64, qty *fl
 	resp, err := a.PlaceOrder(sym, strings.ToLower(string(side)), 0, "market", size,
 		false, true, false)
 	if err != nil {
-		a.log.Infof("place market order error: %v\n", err)
+		a.log.Infof("place market order error: %v", err)
 		return err
 	} else if !resp.Success {
 		return errors.New("place order unknown error")
