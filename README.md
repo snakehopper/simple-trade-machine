@@ -77,6 +77,18 @@
 
 https:// simple-trade-machine-blablabla.a.run.app/**ftx/BTC-PERP**
 
+### webhook範例
+
+| 範例    | 交易所             | 交易對      | webhook                                                                    |
+|-------|-----------------|----------|----------------------------------------------------------------------------|
+| 幣安現貨  | binance         | BTCUSDT  | `https://simple-trade-machine-blablabla.a.run.app/binance/BTCUSDT`         |
+| 幣安合約  | binance-futures | BTCUSDT  | `https://simple-trade-machine-blablabla.a.run.app/binance-futures/BTCUSDT` |
+| FTX現貨 | ftx             | ETH/USDT | `https://simple-trade-machine-blablabla.a.run.app/ftx/ETH/USDT`            |
+| FTX合約 | ftx             | ETH-PERP | `https://simple-trade-machine-blablabla.a.run.app/ftx/ETH-PERP`            |
+
+_(此處 blablabla 應該會是[建立函式](#建立函式)後 Google 給的網址)_
+
+
 ## 風險
 
 webhook url `網址` 洩漏的話，別人就能控制機器下單！
@@ -102,3 +114,30 @@ Google Cloud functions 服務中斷的話，將會錯過開倉、平倉訊號！
 
 不支援月合約、季合約
 如果要交易 BUSD 交易對，需要開啟「聯合保證金模式」Multi-Assets Mode
+
+## FAQ
+
+```
+設定流程好多步驟，有沒有簡單點的方法？
+```
+有。參考 [命令行部署](GCLOUD.md)
+
+```
+現貨交易對，碰到做空訊號如何處理？
+```
+程式碰到「多轉空訊號」「空方訊號」只會平掉手上的現貨倉位，並順利結束；不會有實際做空的動作
+
+```
+如何設定槓桿？
+```
+槓桿無需在程式裡配置，直接到交易所的網頁裡設置即可。
+
+系統收到指標訊號後，會根據 「帳號可用資金 x OPEN_PERCENT x 帳號槓桿」 去開倉下單
+
+現貨則採「帳號可用資金 x OPEN_PERCENT x SPOT_OPEN_X」
+
+```
+可以同時多個交易所下單嗎？
+```
+支援。通過新增多個「快訊」配置不同交易所的 webhook 即可。 [參考webhook範例](#webhook)
+
