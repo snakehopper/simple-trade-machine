@@ -97,6 +97,10 @@ func (a Api) GetPosition(sym string) (float64, error) {
 	if err != nil {
 		return 0, err
 	}
+	if len(exch.Symbols) == 0 {
+		return 0, fmt.Errorf("unkonwn symbol:%s", sym)
+	}
+
 	var base string
 	if s := exch.Symbols[0]; s.Symbol != sym {
 		err = fmt.Errorf("exchange info symbol not match: %+v", s)

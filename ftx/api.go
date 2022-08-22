@@ -60,7 +60,7 @@ func (a Api) GetPosition(sym string) (float64, error) {
 				return p.NetSize, nil
 			}
 		}
-		fallthrough
+		return 0, nil
 	default:
 		return 0, fmt.Errorf("unknown market: %s", sym)
 	}
