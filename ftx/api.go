@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"ghohoo.solutions/yt/ftx/structs"
 	"ghohoo.solutions/yt/internal/data"
+	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"math"
 	"strings"
@@ -28,7 +29,9 @@ func (a Api) MaxQuoteValue(sym string) (total, free float64, err error) {
 
 	res := acc.Result
 	if a.GetTradingPair(sym).IsSpot() {
-		total, free = res.Collateral, res.FreeCollateral
+		mx := viper.GetFloat64("SPOT_OPEN_X")
+		total = res.Collateral * mx
+		free = res.FreeCollateral * mx
 		return
 	}
 

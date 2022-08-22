@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"ghohoo.solutions/yt/binance/com"
 	"ghohoo.solutions/yt/internal/data"
+	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"io/ioutil"
 	"math"
@@ -33,11 +34,12 @@ func (a Api) MaxQuoteValue(sym string) (total, free float64, err error) {
 		return
 	}
 
+	mx := viper.GetFloat64("SPOT_OPEN_X")
 	quote := a.GetTradingPair(sym).Quote
 	for _, bal := range acc.Balances {
 		if bal.Asset == quote {
-			free = bal.Free
-			total = bal.Free + bal.Locked
+			free = bal.Free * mx
+			total = (bal.Free + bal.Locked) * mx
 			return
 		}
 	}
