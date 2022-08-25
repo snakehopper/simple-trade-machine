@@ -3,9 +3,10 @@ package function
 import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"strings"
 )
 
-func setupLogger(exch, symbol string) *zap.SugaredLogger {
+func setupLogger(exch, symbol string, sig *Signal) *zap.SugaredLogger {
 	cfg := zap.Config{
 		Level:             zap.NewAtomicLevelAt(zap.DebugLevel),
 		Development:       true,
@@ -17,12 +18,13 @@ func setupLogger(exch, symbol string) *zap.SugaredLogger {
 			CallerKey:    "C",
 			MessageKey:   "M",
 			LineEnding:   zapcore.DefaultLineEnding,
-			EncodeCaller: zapcore.ShortCallerEncoder,
+			EncodeCaller: LineNumCallerEncoder,
 		},
 		OutputPaths:      []string{"stdout"},
 		ErrorOutputPaths: []string{"stderr"},
 		InitialFields: map[string]interface{}{
 			"e": exch, "s": symbol,
+			"m": sig.Strategy, "a": sig.Action,
 		},
 	}
 	logger, err := cfg.Build()
@@ -30,4 +32,13 @@ func setupLogger(exch, symbol string) *zap.SugaredLogger {
 		panic(err)
 	}
 	return logger.Sugar()
+}
+
+func LineNumCallerEncoder(caller zapcore.EntryCaller, enc zapcore.PrimitiveArrayEncoder) {
+	p := caller.TrimmedPath()
+	idx := strings.IndexByte(p, '/')
+	if idx != -1 {
+		p = p[idx+1:]
+	}
+	enc.AppendString(p)
 }

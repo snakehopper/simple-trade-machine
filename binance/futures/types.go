@@ -1,6 +1,7 @@
 package futures
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/shopspring/decimal"
 )
@@ -16,6 +17,7 @@ type ExchangeInfoResp struct {
 	} `json:"rateLimits"`
 	ExchangeFilters []interface{} `json:"exchangeFilters"`
 	Symbols         []SymbolResp  `json:"symbols"`
+	ErrorResp
 }
 
 func (e ExchangeInfoResp) RoundLotSize(symbol string, qty float64) float64 {
@@ -102,6 +104,12 @@ type OrderBookTickerResp struct {
 	AskPrice float64 `json:"askPrice,string"`
 	AskQty   string  `json:"askQty"`
 	Time     int64   `json:"time"`
+}
+
+type OrderBookResp struct {
+	LastUpdateId int             `json:"lastUpdateId"`
+	Bids         [][]json.Number `json:"bids"`
+	Asks         [][]json.Number `json:"asks"`
 }
 
 type AccountResp struct {

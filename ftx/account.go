@@ -52,5 +52,7 @@ func (a Api) GetBalance(sym string) (*structs.WalletBalances, error) {
 			return &res, nil
 		}
 	}
-	return nil, fmt.Errorf("invalid symbol: %v", sym)
+	return &structs.WalletBalances{
+		Coin: pair.Base,
+	}, nil
 }

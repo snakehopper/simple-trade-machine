@@ -30,6 +30,9 @@
 
 ### 設定
 
+#### 基本
+「環境」選 `第2代`
+
 「函式名稱」輸入 `simple-trade-machine`
 
 「地區」建議別選「美洲」，因為有些 token 是不能在美國的機器上交易的。
@@ -38,8 +41,13 @@
 - asia-east2 香港
 - asia-southeast1 新加坡
 
-「觸發條件」選 `HTTP`，並勾選 `允許未經驗證的叫用`
+#### 觸發條件
+1. 「觸發條件類型」選 `HTTP`
+   _（留意這裡的`網址`選項，後面會用到）_
+2. 勾選 `允許未經驗證的叫用`
+3. 儲存  
 
+#### 執行階段、建構作業、連線和安全性設定
 「執行階段」分配的記憶體，選 128 MB
 
 「自動調度資源」執行個體數量下限， 填 2
@@ -99,15 +107,18 @@ Google Cloud functions 服務中斷的話，將會錯過開倉、平倉訊號！
 
 | 名稱             | 值                                    |
 |----------------|--------------------------------------|
-| OPEN_PERCENT   | 每次開倉比例：10 代表每次使用十份之一的資金下單            |
-| REDUCE_PERCENT | 每次減倉比例：50 代表每次減倉一半的倉位                |
+| OPEN_PERCENT   | ! 每次開倉比例：10 代表每次使用十份之一的資金下單          |
+| REDUCE_PERCENT | ! 每次減倉比例：50 代表每次減倉一半的倉位              |
 | SPOT_OPEN_X    | 現貨的開倉量＝可用資金＊OPEN_PERCENT＊SPOT_OPEN_X |
+| ORDER_TYPE     | ! 使用價單或市價開單，`limit` `market`          |
 | FTX_APIKEY     | FTX 網頁申請的 API Key                    |   
 | FTX_SECRET     | FTX 網頁申請的 API Secret                 |   
 | FTX_SUBACCOUNT | (選填) main 帳號填空 `""`                  |   
 | BINANCE_APIKEY | 幣安網頁申請的 API Key                      |   
 | BINANCE_SECRET | 幣安網頁申請的 API Secret                   |   
 
+! 表示可根據策略客製化，例如一般策略都是減倉10%，唯左側拐點多方減倉訊號每次30%" 寫作 `REDUCE_PERCENT: "10"`  `COUNTER_REDUCE_PERCENT: "30"`
+ 
 ## 限制
 
 ### 幣安

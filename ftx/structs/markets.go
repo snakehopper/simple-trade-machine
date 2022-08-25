@@ -61,3 +61,11 @@ type Market struct {
 	PriceHigh24H          float64 `json:"priceHigh24h"`
 	PriceLow24H           float64 `json:"priceLow24h"`
 }
+
+type OrderBookResponse struct {
+	Success bool `json:"success"`
+	Result  struct {
+		Asks [][]float64 `json:"asks"`
+		Bids [][]float64 `json:"bids"`
+	} `json:"result"`
+}

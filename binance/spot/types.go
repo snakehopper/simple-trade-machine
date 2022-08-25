@@ -1,6 +1,7 @@
 package spot
 
 import (
+	"encoding/json"
 	"github.com/shopspring/decimal"
 )
 
@@ -116,6 +117,12 @@ type OrderBookTickerResp struct {
 	BidQty   string  `json:"bidQty"`
 	AskPrice float64 `json:"askPrice,string"`
 	AskQty   string  `json:"askQty"`
+}
+
+type OrderBookResp struct {
+	LastUpdateId int             `json:"lastUpdateId"`
+	Bids         [][]json.Number `json:"bids"`
+	Asks         [][]json.Number `json:"asks"`
 }
 
 type AccountResp struct {

@@ -63,9 +63,6 @@ func (a Api) GetMarket(sym string) (*data.Market, error) {
 				}
 			}
 			return &data.Market{
-				Bid:         0, //TODO
-				Ask:         0, //TODO
-				Last:        0, //TODO
 				Type:        data.Spot,
 				TickSize:    tickSize,
 				MinNotional: minNotional,
@@ -73,6 +70,30 @@ func (a Api) GetMarket(sym string) (*data.Market, error) {
 		}
 	}
 	return nil, fmt.Errorf("symbol %v not found", sym)
+}
+
+func (a Api) GetOrderBook(sym string) (*data.OrderBook, error) {
+	res, err := a.OrderBook(sym)
+	if err != nil {
+		return nil, err
+	}
+
+	var out = &data.OrderBook{
+		Bid: make([]data.OrderBookLevel, 0),
+		Ask: make([]data.OrderBookLevel, 0),
+	}
+	for _, ask := range res.Asks {
+		px, _ := ask[0].Float64()
+		sz, _ := ask[1].Float64()
+		out.Ask = append(out.Ask, data.OrderBookLevel{Px: px, Size: sz})
+	}
+	for _, bid := range res.Bids {
+		px, _ := bid[0].Float64()
+		sz, _ := bid[1].Float64()
+		out.Bid = append(out.Ask, data.OrderBookLevel{Px: px, Size: sz})
+	}
+
+	return out, nil
 }
 
 func (a Api) GetPair(sym string) (*data.Pair, error) {
@@ -132,7 +153,12 @@ func (a Api) LimitOrder(sym string, side data.Side, px float64, qty float64, ioc
 	} else {
 		v.Set("timeInForce", "GTC")
 	}
-	rounded := exch.RoundLotSize(sym, qty)
+	rounded := exch.RoundLotSize(sym, math.Abs(qty))
+	if rounded == 0 {
+		a.log.Infof("%f rounded quantity is 0, skip place order", qty)
+		return nil
+	}
+
 	v.Set("quantity", fmt.Sprint(rounded))
 	v.Set("price", fmt.Sprint(px))
 	resp, err := a.Post("/api/v3/order", v, true)
@@ -154,7 +180,7 @@ func (a Api) LimitOrder(sym string, side data.Side, px float64, qty float64, ioc
 	}
 
 	if out.Code != 0 {
-		return fmt.Errorf("market order error: %v", out.Msg)
+		return fmt.Errorf("limit order error: %v", out.Msg)
 	}
 
 	a.log.Info("<", strings.TrimSpace(string(bs)))

@@ -47,7 +47,7 @@ func (a Api) GetPosition(sym string) (float64, error) {
 		if err != nil {
 			return 0, err
 		}
-		return bal.Free, nil
+		return bal.AvailableWithoutBorrow, nil
 	case data.Future:
 		acc, err := a.GetAccount()
 		if err != nil {
@@ -87,13 +87,37 @@ func (a Api) GetMarket(market string) (*data.Market, error) {
 	}
 
 	return &data.Market{
-		Bid:         res.Bid,
-		Ask:         res.Ask,
-		Last:        res.Last,
 		Type:        typ,
 		TickSize:    res.SizeIncrement,
 		MinNotional: res.MinProvideSize,
 	}, nil
+}
+
+func (a Api) GetOrderBook(market string) (*data.OrderBook, error) {
+	ul := fmt.Sprintf("markets/%s/orderbook?depth=5", market)
+	resp, err := a._get(ul, []byte(""))
+	if err != nil {
+		a.log.Infof("Error GetMarket: %v", err)
+		return nil, err
+	}
+	var mResp structs.OrderBookResponse
+	err = _processResponse(resp, &mResp)
+	if err != nil {
+		a.log.Info("<", resp.Body)
+		return nil, err
+	}
+
+	out := &data.OrderBook{
+		Bid: make([]data.OrderBookLevel, 0),
+		Ask: make([]data.OrderBookLevel, 0),
+	}
+	for _, res := range mResp.Result.Asks {
+		out.Ask = append(out.Ask, data.OrderBookLevel{Px: res[0], Size: res[1]})
+	}
+	for _, res := range mResp.Result.Bids {
+		out.Bid = append(out.Bid, data.OrderBookLevel{Px: res[0], Size: res[1]})
+	}
+	return out, nil
 }
 
 func (a Api) GetPair(sym string) (*data.Pair, error) {
@@ -123,11 +147,11 @@ func (a Api) MarketOrder(sym string, side data.Side, quoteUnit *float64, qty *fl
 	if qty != nil {
 		size = math.Abs(*qty)
 	} else if quoteUnit != nil {
-		m, err := a.GetMarket(sym)
+		m, err := a.GetOrderBook(sym)
 		if err != nil {
 			return fmt.Errorf("get price error when MarketOrder: %w", err)
 		}
-		size = *quoteUnit / m.Last
+		size = *quoteUnit / m.MidPx()
 	} else {
 		return fmt.Errorf("either px or qty should defined")
 	}

@@ -27,6 +27,10 @@ func (a Api) ExchangeInfo() (*ExchangeInfoResp, error) {
 		return nil, err
 	}
 
+	if out.Code != 0 {
+		return &out, fmt.Errorf("%v", string(bs))
+	}
+
 	return &out, nil
 }
 
@@ -46,6 +50,30 @@ func (a Api) OrderBookTicker(sym string) (*OrderBookTickerResp, error) {
 	}
 
 	var out OrderBookTickerResp
+	if err := json.Unmarshal(bs, &out); err != nil {
+		return nil, err
+	}
+
+	return &out, nil
+}
+
+func (a Api) OrderBook(sym string) (*OrderBookResp, error) {
+	q := url.Values{}
+	q.Set("symbol", sym)
+	q.Set("limit", "5")
+	resp, err := a.Get("/fapi/v1/depth", q, false)
+	if err != nil {
+		return nil, err
+	}
+
+	defer resp.Body.Close()
+
+	bs, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var out OrderBookResp
 	if err := json.Unmarshal(bs, &out); err != nil {
 		return nil, err
 	}

@@ -10,6 +10,7 @@ type Exchange interface {
 	GetPair(sym string) (*Pair, error)
 
 	GetMarket(sym string) (*Market, error)
+	GetOrderBook(sym string) (*OrderBook, error)
 
 	GetPosition(sym string) (float64, error)
 	LimitOrder(sym string, side Side, px float64, qty float64, ioc bool, postOnly bool) error
@@ -25,9 +26,6 @@ const (
 
 type Market struct {
 	Type        MarketType
-	Bid         float64
-	Ask         float64
-	Last        float64
 	TickSize    float64
 	MinNotional float64
 }
@@ -38,6 +36,27 @@ var (
 	Spot   MarketType = "spot"
 	Future MarketType = "future"
 )
+
+type OrderType string
+
+var (
+	LimitOrder  OrderType = "limit"
+	MarketOrder OrderType = "market"
+)
+
+type OrderBook struct {
+	Bid []OrderBookLevel
+	Ask []OrderBookLevel
+}
+
+func (b OrderBook) MidPx() float64 {
+	return (b.Ask[0].Px + b.Bid[0].Px) / 2
+}
+
+type OrderBookLevel struct {
+	Px   float64
+	Size float64
+}
 
 type Pair struct {
 	Name  string

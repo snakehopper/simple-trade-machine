@@ -11,6 +11,7 @@ const (
 	DefaultOpenOrderPercent      = 10.
 	DefaultReducePositionPercent = 50.
 	DefaultPositionOpenX         = 1.
+	DefaultOrderType             = "market"
 )
 
 func init() {
@@ -18,6 +19,7 @@ func init() {
 	viper.SetDefault("OPEN_PERCENT", DefaultOpenOrderPercent)
 	viper.SetDefault("REDUCE_PERCENT", DefaultReducePositionPercent)
 	viper.SetDefault("SPOT_OPEN_X", DefaultPositionOpenX)
+	viper.SetDefault("ORDER_TYPE", DefaultOrderType)
 
 	// float part
 	for _, ev := range []string{

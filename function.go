@@ -10,9 +10,11 @@ import (
 	"github.com/GoogleCloudPlatform/functions-framework-go/functions"
 	"github.com/gofrs/flock"
 	"github.com/gorilla/mux"
+	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -43,9 +45,14 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	signal := NewSignal(string(bs))
-	log := setupLogger(e, sym)
-	log.Info("action: ", signal.String())
+	signal, err := NewSignal(string(bs))
+	if err != nil {
+		fmt.Printf("msg:[%s] err:%v\n", string(bs), err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	log := setupLogger(e, sym, signal)
 
 	// lock to handle signal 1by1
 	log.Info(filepath.Glob("/tmp/*"))
@@ -58,13 +65,13 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer fl.Unlock()
 
-	h, err := NewSignalHandler(e, sym)
+	h, err := NewSignalHandler(signal, e, sym, r.URL.Query())
 	if err != nil {
 		http.Error(w, "unsupported exchange:"+e, http.StatusBadRequest)
 		return
 	}
 
-	switch signal {
+	switch signal.Action {
 	case LONG:
 		err = h.longPosition()
 	case SHORT:
@@ -85,14 +92,16 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 type SignalHandler struct {
-	log    *zap.SugaredLogger
-	exch   data.Exchange
-	sym    string
-	exName string
+	log      *zap.SugaredLogger
+	sig      *Signal
+	override url.Values
+	exch     data.Exchange
+	sym      string
+	exName   string
 }
 
-func NewSignalHandler(exName, symbol string) (*SignalHandler, error) {
-	logger := setupLogger(exName, symbol)
+func NewSignalHandler(sig *Signal, exName, symbol string, q url.Values) (*SignalHandler, error) {
+	logger := setupLogger(exName, symbol, sig)
 
 	var exch data.Exchange
 	switch exName {
@@ -107,11 +116,60 @@ func NewSignalHandler(exName, symbol string) (*SignalHandler, error) {
 	}
 
 	return &SignalHandler{
-		log:    logger,
-		sym:    symbol,
-		exName: exName,
-		exch:   exch,
+		log:      logger,
+		sig:      sig,
+		override: q,
+		sym:      symbol,
+		exName:   exName,
+		exch:     exch,
 	}, nil
+}
+
+func (h SignalHandler) GetOrderType() data.OrderType {
+	switch s := strings.ToLower(h.override.Get("order")); s {
+	case "limit":
+		return data.LimitOrder
+	case "market":
+		return data.MarketOrder
+	}
+
+	switch strings.ToLower(h.stringFromEnv("ORDER_TYPE")) {
+	case "limit":
+		return data.LimitOrder
+	case "market":
+		return data.MarketOrder
+	default:
+		panic("unreachable")
+	}
+}
+
+func (h SignalHandler) stringFromEnv(k string) string {
+	if v := h.override.Get(strings.ToLower(k)); v != "" {
+		return v
+	}
+
+	k1 := fmt.Sprintf("%s_%s", h.sig.Strategy, k)
+
+	if s := viper.GetString(k1); s != "" {
+		return s
+	}
+
+	return viper.GetString(k)
+}
+
+func (h SignalHandler) floatFromEnv(k string) float64 {
+	if s := h.override.Get(strings.ToLower(k)); s != "" {
+		if v, err := strconv.ParseFloat(s, 64); err == nil {
+			return v
+		}
+	}
+
+	k1 := fmt.Sprintf("%s_%s", h.sig.Strategy, k)
+	if viper.IsSet(k1) {
+		return viper.GetFloat64(k1)
+	}
+
+	return viper.GetFloat64(k)
 }
 
 func (h SignalHandler) openPosition(side data.Side) error {
@@ -125,19 +183,29 @@ func (h SignalHandler) openPosition(side data.Side) error {
 		return nil
 	}
 
-	pct := getEnvFloat("OPEN_PERCENT", DefaultOpenOrderPercent)
+	pct := h.floatFromEnv("OPEN_PERCENT")
 	orderUsd := total * (pct / 100)
+	h.log.Infof("MaxQuoteValue(%s) total:%v free:%v orderUsd:%v", h.sym, total, free, orderUsd)
+
 	if freeUsd := free * 0.9; freeUsd < orderUsd {
 		h.log.Infof("low collateral, trim notional %v -> %v", orderUsd, freeUsd)
 		orderUsd = freeUsd
 	}
 
 	if orderUsd < market.MinNotional {
-		h.log.Infof("order size too small (%v < %v), skip %v action", orderUsd, side, market.MinNotional)
+		h.log.Infof("order size too small (%v < %v), skip %v action", orderUsd, market.MinNotional, side)
 		return nil
 	}
 
-	return h.exch.MarketOrder(h.sym, side, &orderUsd, nil)
+	if h.GetOrderType() == data.MarketOrder {
+		return h.exch.MarketOrder(h.sym, side, &orderUsd, nil)
+	}
+
+	px, err := h.bestQuotePrice(side)
+	if err != nil {
+		return err
+	}
+	return h.exch.LimitOrder(h.sym, side, px, orderUsd/px, false, false)
 }
 
 func (h SignalHandler) closeIfAnyPosition() error {
@@ -154,10 +222,19 @@ func (h SignalHandler) closeIfAnyPosition() error {
 }
 
 func (h SignalHandler) longPosition() error {
-	if err := h.closeIfAnyPosition(); err != nil {
+	err := h.closeIfAnyPosition()
+	if err != nil {
 		return err
 	}
-	return h.openPosition(data.Buy)
+
+	for i := 0; i < 3; i++ {
+		if err = h.openPosition(data.Buy); err == nil {
+			return nil
+		}
+		h.log.Infof("#%d err:%v wait a second and retry", i, err)
+		time.Sleep(3 * time.Second)
+	}
+	return err
 }
 
 func (h SignalHandler) shortPosition() error {
@@ -172,25 +249,31 @@ func (h SignalHandler) shortPosition() error {
 		return nil
 	}
 
-	return h.openPosition(data.Sell)
-}
-
-func (h SignalHandler) reducePosition() error {
-	pct := getEnvFloat("REDUCE_PERCENT", DefaultReducePositionPercent)
-
 	var err error
 	for i := 0; i < 3; i++ {
-		err = h.closePartialPosition(pct)
-		if err == nil {
+		if err = h.openPosition(data.Sell); err == nil {
 			return nil
 		}
-		h.log.Infof("#%d wait a second and retry", i)
+		h.log.Infof("#%d err:%v wait a second and retry", i, err)
 		time.Sleep(3 * time.Second)
 	}
 	return err
 }
 
-func (h SignalHandler) closePartialPosition(pct float64) error {
+func (h SignalHandler) reducePosition() error {
+	pct := h.floatFromEnv("REDUCE_PERCENT")
+	var err error
+	for i := 0; i < 3; i++ {
+		if err = h.closePartialPosition(pct, false); err == nil {
+			return nil
+		}
+		h.log.Infof("#%d err:%v wait a second and retry", i, err)
+		time.Sleep(3 * time.Second)
+	}
+	return err
+}
+
+func (h SignalHandler) closePartialPosition(pct float64, force bool) error {
 	pos, err := h.exch.GetPosition(h.sym)
 	if err != nil {
 		return err
@@ -208,18 +291,23 @@ func (h SignalHandler) closePartialPosition(pct float64) error {
 		offsetSide = data.Buy
 	}
 	size := pos * pct / 100
-	if err := h.exch.MarketOrder(h.sym, offsetSide, nil, &size); err != nil {
-		h.log.Infof("close position error: %v", err)
+
+	if force || h.GetOrderType() == data.MarketOrder {
+		return h.exch.MarketOrder(h.sym, offsetSide, nil, &size)
+	}
+
+	px, err := h.bestQuotePrice(offsetSide)
+	if err != nil {
 		return err
 	}
 
-	return nil
+	return h.exch.LimitOrder(h.sym, offsetSide, px, size, false, false)
 }
 
 func (h SignalHandler) closePosition() error {
 	var err error
 	for i := 0; i < 3; i++ {
-		err = h.closePartialPosition(100)
+		err = h.closePartialPosition(100, false)
 		if err == nil {
 			return nil
 		}
@@ -232,7 +320,7 @@ func (h SignalHandler) closePosition() error {
 func (h SignalHandler) stopLossPosition() error {
 	var err error
 	for i := 0; i < 3; i++ {
-		err = h.closePartialPosition(100)
+		err = h.closePartialPosition(100, true)
 		if err == nil {
 			return nil
 		}
@@ -242,16 +330,24 @@ func (h SignalHandler) stopLossPosition() error {
 	return err
 }
 
-func getEnvFloat(key string, _default float64) float64 {
-	res, ok := os.LookupEnv(key)
-	if !ok {
-		return _default
-	}
-
-	val, err := strconv.ParseFloat(res, 64)
+func (h SignalHandler) bestQuotePrice(side data.Side) (float64, error) {
+	ob, err := h.exch.GetOrderBook(h.sym)
 	if err != nil {
-		return _default
+		return 0, err
 	}
 
-	return val
+	var px float64
+	if side == data.Buy {
+		px = ob.Bid[0].Px
+		if px*ob.Bid[0].Size < 100 {
+			px = ob.Bid[1].Px
+		}
+	} else if side == data.Sell {
+		px = ob.Ask[0].Px
+		if px*ob.Ask[0].Size < 100 {
+			px = ob.Ask[1].Px
+		}
+	}
+
+	return px, nil
 }
