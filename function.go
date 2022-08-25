@@ -10,7 +10,6 @@ import (
 	"github.com/GoogleCloudPlatform/functions-framework-go/functions"
 	"github.com/gofrs/flock"
 	"github.com/gorilla/mux"
-	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"io/ioutil"
 	"net/http"
@@ -25,44 +24,9 @@ func init() {
 	r := mux.NewRouter()
 	r.HandleFunc("/{exch}/{sym:[A-Z0-9/-]+}", alertHandler)
 	functions.HTTP("AlertHandler", r.ServeHTTP)
-
-	validateEnv()
 }
-
-const (
-	DefaultOpenOrderPercent      = 10.
-	DefaultReducePositionPercent = 50.
-	DefaultPositionOpenX         = 1.
-)
 
 var whitelist = NewWhitelist()
-
-func validateEnv() {
-	viper.AutomaticEnv()
-	viper.SetDefault("OPEN_PERCENT", DefaultOpenOrderPercent)
-	viper.SetDefault("REDUCE_PERCENT", DefaultReducePositionPercent)
-	viper.SetDefault("SPOT_OPEN_X", DefaultPositionOpenX)
-
-	// float part
-	for _, ev := range []string{
-		"OPEN_PERCENT", "REDUCE_PERCENT", "SPOT_OPEN_X",
-	} {
-		v := viper.GetString(ev)
-		if _, err := strconv.ParseFloat(v, 64); err != nil {
-			panic(err)
-		}
-	}
-
-	//string part
-	for _, ev := range []string{
-		"FTX_APIKEY", "FTX_SECRET",
-		"BINANCE_APIKEY", "BINANCE_SECRET",
-	} {
-		if _, ok := os.LookupEnv(ev); !ok {
-			fmt.Println(ev, "not set")
-		}
-	}
-}
 
 func alertHandler(w http.ResponseWriter, r *http.Request) {
 	if !whitelist.Allow(r) {
