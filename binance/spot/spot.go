@@ -64,6 +64,30 @@ func (a Api) OrderBookTicker(sym string) (*OrderBookTickerResp, error) {
 	return &out, nil
 }
 
+func (a Api) OrderBook(sym string) (*OrderBookResp, error) {
+	q := url.Values{}
+	q.Set("symbol", sym)
+	q.Set("limit", "5")
+	resp, err := a.Get("/api/v3/depth", q, false)
+	if err != nil {
+		return nil, err
+	}
+
+	defer resp.Body.Close()
+
+	bs, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var out OrderBookResp
+	if err := json.Unmarshal(bs, &out); err != nil {
+		return nil, err
+	}
+
+	return &out, nil
+}
+
 func (a Api) AccountInfo(sym ...string) (*AccountResp, error) {
 	var v = url.Values{}
 	if len(sym) > 0 {
@@ -83,6 +107,35 @@ func (a Api) AccountInfo(sym ...string) (*AccountResp, error) {
 	}
 
 	var out AccountResp
+	if err := json.Unmarshal(bs, &out); err != nil {
+		return nil, err
+	}
+
+	if out.Code != 0 {
+		return &out, fmt.Errorf("%v", string(bs))
+	}
+
+	return &out, nil
+}
+
+func (a Api) OrderStatus(sym, oid string) (*OrderStatusResp, error) {
+	var v = url.Values{}
+	v.Set("symbol", sym)
+	v.Set("orderId", oid)
+
+	resp, err := a.Get("/api/v3/order", v, true)
+	if err != nil {
+		return nil, err
+	}
+
+	defer resp.Body.Close()
+
+	bs, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var out OrderStatusResp
 	if err := json.Unmarshal(bs, &out); err != nil {
 		return nil, err
 	}

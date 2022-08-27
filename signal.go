@@ -3,18 +3,30 @@ package function
 import (
 	"fmt"
 	"strings"
+	"time"
 )
 
 const (
-	UnknownSignal Signal = iota
+	UnknownSignal Action = iota
 	LONG
 	SHORT
 	REDUCE
 	CLOSE
 	STOP_LOSS
+
+	CounterTrading  Strategy = "COUNTER"
+	TrendFollowing  Strategy = "TREND"
+	UnknownStrategy Strategy = "UnKNOwn"
 )
 
-type Signal int
+type Action int
+type Strategy string
+
+type Signal struct {
+	Strategy  Strategy
+	Action    Action
+	Triggered time.Time
+}
 
 type AlertMessage struct {
 	Strategy string
@@ -37,30 +49,55 @@ func NewAlertMessage(s string) (*AlertMessage, error) {
 	}, nil
 }
 
-func NewSignal(s string) Signal {
+func NewSignal(s string) (*Signal, error) {
 	if len(s) == 0 {
-		return UnknownSignal
+		return nil, fmt.Errorf("empty alert message")
 	}
 
 	msg, err := NewAlertMessage(s)
 	if err != nil {
-		fmt.Println(msg)
-		return UnknownSignal
+		return nil, err
 	}
 
-	switch msg.Signal {
+	act, err := parseAction(msg.Signal)
+	if err != nil {
+		return nil, err
+	}
+
+	stg := parseStrategy(msg.Strategy)
+
+	fmt.Printf("[%s] %s %s\n", s, stg, act)
+	return &Signal{
+		Strategy:  stg,
+		Action:    act,
+		Triggered: time.Now(),
+	}, nil
+}
+
+func parseAction(msg string) (Action, error) {
+	switch msg {
 	case "空轉多訊號", "多方訊號":
-		return LONG
+		return LONG, nil
 	case "多轉空訊號", "空方訊號":
-		return SHORT
+		return SHORT, nil
 	case "多方減倉訊號", "空方減倉訊號":
-		return REDUCE
+		return REDUCE, nil
 	case "多方停損訊號", "空方停損訊號":
-		return STOP_LOSS
+		return STOP_LOSS, nil
 	case "多方平倉訊號", "空方平倉訊號":
-		return CLOSE
+		return CLOSE, nil
 	default:
-		fmt.Printf("unknown alert:%v len:%d\n", s, len(s))
-		return UnknownSignal
+		return UnknownSignal, fmt.Errorf("unknown alert:%v len:%d\n", msg, len(msg))
+	}
+}
+
+func parseStrategy(msg string) Strategy {
+	switch msg {
+	case "左側拐點":
+		return CounterTrading
+	case "順勢減倉":
+		return TrendFollowing
+	default:
+		return UnknownStrategy
 	}
 }

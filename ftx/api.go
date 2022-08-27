@@ -47,7 +47,7 @@ func (a Api) GetPosition(sym string) (float64, error) {
 		if err != nil {
 			return 0, err
 		}
-		return bal.Free, nil
+		return bal.AvailableWithoutBorrow, nil
 	case data.Future:
 		acc, err := a.GetAccount()
 		if err != nil {
@@ -87,13 +87,37 @@ func (a Api) GetMarket(market string) (*data.Market, error) {
 	}
 
 	return &data.Market{
-		Bid:         res.Bid,
-		Ask:         res.Ask,
-		Last:        res.Last,
 		Type:        typ,
 		TickSize:    res.SizeIncrement,
 		MinNotional: res.MinProvideSize,
 	}, nil
+}
+
+func (a Api) GetOrderBook(market string) (*data.OrderBook, error) {
+	ul := fmt.Sprintf("markets/%s/orderbook?depth=5", market)
+	resp, err := a._get(ul, []byte(""))
+	if err != nil {
+		a.log.Infof("Error GetMarket: %v", err)
+		return nil, err
+	}
+	var mResp structs.OrderBookResponse
+	err = _processResponse(resp, &mResp)
+	if err != nil {
+		a.log.Info("<", resp.Body)
+		return nil, err
+	}
+
+	out := &data.OrderBook{
+		Bid: make([]data.OrderBookLevel, 0),
+		Ask: make([]data.OrderBookLevel, 0),
+	}
+	for _, res := range mResp.Result.Asks {
+		out.Ask = append(out.Ask, data.OrderBookLevel{Px: res[0], Size: res[1]})
+	}
+	for _, res := range mResp.Result.Bids {
+		out.Bid = append(out.Bid, data.OrderBookLevel{Px: res[0], Size: res[1]})
+	}
+	return out, nil
 }
 
 func (a Api) GetPair(sym string) (*data.Pair, error) {
@@ -105,39 +129,80 @@ func (a Api) GetPair(sym string) (*data.Pair, error) {
 	return &p, nil
 }
 
-func (a Api) LimitOrder(sym string, side data.Side, px float64, qty float64, ioc bool, postOnly bool) error {
+func (a Api) LimitOrder(sym string, side data.Side, px float64, qty float64, ioc bool, postOnly bool) (string, error) {
 	size := math.Abs(qty)
 	resp, err := a.PlaceOrder(sym, strings.ToLower(string(side)), px, "limit", size, false, false, false)
 	if err != nil {
 		a.log.Infof("place limit order error: %v", err)
-		return err
+		return "", err
 	} else if !resp.Success {
-		return errors.New("place limit order unknown error")
+		return "", errors.New("place limit order unknown error")
 	}
 
-	return nil
+	return fmt.Sprint(resp.Result.ID), nil
 }
 
-func (a Api) MarketOrder(sym string, side data.Side, quoteUnit *float64, qty *float64) error {
+func (a Api) MarketOrder(sym string, side data.Side, quoteUnit *float64, qty *float64) (string, error) {
 	var size float64
 	if qty != nil {
 		size = math.Abs(*qty)
 	} else if quoteUnit != nil {
-		m, err := a.GetMarket(sym)
+		m, err := a.GetOrderBook(sym)
 		if err != nil {
-			return fmt.Errorf("get price error when MarketOrder: %w", err)
+			return "", fmt.Errorf("get price error when MarketOrder: %w", err)
 		}
-		size = *quoteUnit / m.Last
+		size = *quoteUnit / m.MidPx()
 	} else {
-		return fmt.Errorf("either px or qty should defined")
+		return "", fmt.Errorf("either px or qty should defined")
 	}
 	resp, err := a.PlaceOrder(sym, strings.ToLower(string(side)), 0, "market", size,
 		false, true, false)
 	if err != nil {
 		a.log.Infof("place market order error: %v", err)
-		return err
+		return "", err
 	} else if !resp.Success {
-		return errors.New("place order unknown error")
+		return "", errors.New("place order unknown error")
+	}
+
+	return fmt.Sprint(resp.Result.ID), nil
+}
+
+func (a Api) GetOrder(sym, oid string) (*data.OrderStatus, error) {
+	ul := fmt.Sprintf("orders/%s", oid)
+	resp, err := a._get(ul, []byte(""))
+	if err != nil {
+		a.log.Infof("Error GetMarket: %v", err)
+		return nil, err
+	}
+	var mResp structs.OrderStatus
+	err = _processResponse(resp, &mResp)
+	if err != nil {
+		a.log.Info("<", resp.Body)
+		return nil, err
+	}
+
+	od := mResp.Result
+	return &data.OrderStatus{
+		Id:            fmt.Sprint(od.ID),
+		Pair:          a.GetTradingPair(sym),
+		Type:          data.OrderType(od.Type),
+		Side:          data.Side(od.Side),
+		Price:         od.Price,
+		FilledSize:    od.FilledSize,
+		RemainingSize: od.RemainingSize,
+		CreatedAt:     od.CreatedAt,
+	}, nil
+}
+
+func (a Api) CancelOrder(sym, oid string) error {
+	var deleteResponse Response
+	resp, err := a._delete("orders/"+oid, []byte(""))
+	if err != nil {
+		a.log.Warnf("Error CancelOrder %v: %v", oid, err)
+		return err
+	}
+	if err = _processResponse(resp, &deleteResponse); err != nil {
+		return err
 	}
 
 	return nil

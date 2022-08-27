@@ -54,6 +54,27 @@ func (c Client) Post(path string, val url.Values, sign bool) (*http.Response, er
 	return http.DefaultClient.Do(req)
 }
 
+func (c Client) Delete(path string, val url.Values, sign bool) (*http.Response, error) {
+	ul, err := url.Parse(c.endpoint + path)
+	if err != nil {
+		return nil, err
+	}
+	ul.RawQuery = val.Encode()
+
+	req, err := http.NewRequest("DELETE", ul.String(), strings.NewReader(""))
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("X-MBX-APIKEY", c.apiKey)
+	if sign {
+		c.SignRequest(req)
+	}
+
+	c.log.Info(">", SafeReadBody(req))
+	return http.DefaultClient.Do(req)
+}
+
 func (c Client) SignRequest(r *http.Request) {
 	r.Header.Set("X-MBX-APIKEY", c.apiKey)
 

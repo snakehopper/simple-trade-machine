@@ -1,6 +1,7 @@
 package futures
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/shopspring/decimal"
 )
@@ -16,6 +17,7 @@ type ExchangeInfoResp struct {
 	} `json:"rateLimits"`
 	ExchangeFilters []interface{} `json:"exchangeFilters"`
 	Symbols         []SymbolResp  `json:"symbols"`
+	ErrorResp
 }
 
 func (e ExchangeInfoResp) RoundLotSize(symbol string, qty float64) float64 {
@@ -104,6 +106,12 @@ type OrderBookTickerResp struct {
 	Time     int64   `json:"time"`
 }
 
+type OrderBookResp struct {
+	LastUpdateId int             `json:"lastUpdateId"`
+	Bids         [][]json.Number `json:"bids"`
+	Asks         [][]json.Number `json:"asks"`
+}
+
 type AccountResp struct {
 	FeeTier                     int        `json:"feeTier"`
 	CanTrade                    bool       `json:"canTrade"`
@@ -178,29 +186,30 @@ type ErrorResp struct {
 }
 
 type OrderResp struct {
-	ClientOrderId string `json:"clientOrderId"`
-	CumQty        string `json:"cumQty"`
-	CumQuote      string `json:"cumQuote"`
-	ExecutedQty   string `json:"executedQty"`
-	OrderId       int    `json:"orderId"`
-	AvgPrice      string `json:"avgPrice"`
-	OrigQty       string `json:"origQty"`
-	Price         string `json:"price"`
-	ReduceOnly    bool   `json:"reduceOnly"`
-	Side          string `json:"side"`
-	PositionSide  string `json:"positionSide"`
-	Status        string `json:"status"`
-	StopPrice     string `json:"stopPrice"`
-	ClosePosition bool   `json:"closePosition"`
-	Symbol        string `json:"symbol"`
-	TimeInForce   string `json:"timeInForce"`
-	Type          string `json:"type"`
-	OrigType      string `json:"origType"`
-	ActivatePrice string `json:"activatePrice"`
-	PriceRate     string `json:"priceRate"`
-	UpdateTime    int64  `json:"updateTime"`
-	WorkingType   string `json:"workingType"`
-	PriceProtect  bool   `json:"priceProtect"`
+	ClientOrderId string  `json:"clientOrderId"`
+	CumQty        string  `json:"cumQty"`
+	CumQuote      string  `json:"cumQuote"`
+	ExecutedQty   float64 `json:"executedQty,string"`
+	OrderId       int     `json:"orderId"`
+	AvgPrice      string  `json:"avgPrice"`
+	OrigQty       float64 `json:"origQty,string"`
+	Price         float64 `json:"price,string"`
+	ReduceOnly    bool    `json:"reduceOnly"`
+	Side          string  `json:"side"`
+	PositionSide  string  `json:"positionSide"`
+	Status        string  `json:"status"`
+	StopPrice     string  `json:"stopPrice"`
+	ClosePosition bool    `json:"closePosition"`
+	Symbol        string  `json:"symbol"`
+	TimeInForce   string  `json:"timeInForce"`
+	Type          string  `json:"type"`
+	OrigType      string  `json:"origType"`
+	ActivatePrice string  `json:"activatePrice"`
+	PriceRate     string  `json:"priceRate"`
+	Time          int64   `json:"time"`
+	UpdateTime    int64   `json:"updateTime"`
+	WorkingType   string  `json:"workingType"`
+	PriceProtect  bool    `json:"priceProtect"`
 
 	ErrorResp
 }

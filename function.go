@@ -14,6 +14,7 @@ import (
 	"go.uber.org/zap"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -25,44 +26,9 @@ func init() {
 	r := mux.NewRouter()
 	r.HandleFunc("/{exch}/{sym:[A-Z0-9/-]+}", alertHandler)
 	functions.HTTP("AlertHandler", r.ServeHTTP)
-
-	validateEnv()
 }
-
-const (
-	DefaultOpenOrderPercent      = 10.
-	DefaultReducePositionPercent = 50.
-	DefaultPositionOpenX         = 1.
-)
 
 var whitelist = NewWhitelist()
-
-func validateEnv() {
-	viper.AutomaticEnv()
-	viper.SetDefault("OPEN_PERCENT", DefaultOpenOrderPercent)
-	viper.SetDefault("REDUCE_PERCENT", DefaultReducePositionPercent)
-	viper.SetDefault("SPOT_OPEN_X", DefaultPositionOpenX)
-
-	// float part
-	for _, ev := range []string{
-		"OPEN_PERCENT", "REDUCE_PERCENT", "SPOT_OPEN_X",
-	} {
-		v := viper.GetString(ev)
-		if _, err := strconv.ParseFloat(v, 64); err != nil {
-			panic(err)
-		}
-	}
-
-	//string part
-	for _, ev := range []string{
-		"FTX_APIKEY", "FTX_SECRET",
-		"BINANCE_APIKEY", "BINANCE_SECRET",
-	} {
-		if _, ok := os.LookupEnv(ev); !ok {
-			fmt.Println(ev, "not set")
-		}
-	}
-}
 
 func alertHandler(w http.ResponseWriter, r *http.Request) {
 	if !whitelist.Allow(r) {
@@ -79,9 +45,14 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	signal := NewSignal(string(bs))
-	log := setupLogger(e, sym)
-	log.Info("action: ", signal.String())
+	signal, err := NewSignal(string(bs))
+	if err != nil {
+		fmt.Printf("msg:[%s] err:%v\n", string(bs), err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	log := setupLogger(e, sym, signal)
 
 	// lock to handle signal 1by1
 	log.Info(filepath.Glob("/tmp/*"))
@@ -94,13 +65,13 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer fl.Unlock()
 
-	h, err := NewSignalHandler(e, sym)
+	h, err := NewSignalHandler(signal, e, sym, r.URL.Query())
 	if err != nil {
 		http.Error(w, "unsupported exchange:"+e, http.StatusBadRequest)
 		return
 	}
 
-	switch signal {
+	switch signal.Action {
 	case LONG:
 		err = h.longPosition()
 	case SHORT:
@@ -108,7 +79,7 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 	case REDUCE:
 		err = h.reducePosition()
 	case CLOSE:
-		err = h.closePosition()
+		err = h.closePosition(false)
 	case STOP_LOSS:
 		err = h.stopLossPosition()
 	default:
@@ -121,14 +92,16 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 type SignalHandler struct {
-	log    *zap.SugaredLogger
-	exch   data.Exchange
-	sym    string
-	exName string
+	log      *zap.SugaredLogger
+	sig      *Signal
+	override url.Values
+	exch     data.Exchange
+	sym      string
+	exName   string
 }
 
-func NewSignalHandler(exName, symbol string) (*SignalHandler, error) {
-	logger := setupLogger(exName, symbol)
+func NewSignalHandler(sig *Signal, exName, symbol string, q url.Values) (*SignalHandler, error) {
+	logger := setupLogger(exName, symbol, sig)
 
 	var exch data.Exchange
 	switch exName {
@@ -143,11 +116,60 @@ func NewSignalHandler(exName, symbol string) (*SignalHandler, error) {
 	}
 
 	return &SignalHandler{
-		log:    logger,
-		sym:    symbol,
-		exName: exName,
-		exch:   exch,
+		log:      logger,
+		sig:      sig,
+		override: q,
+		sym:      symbol,
+		exName:   exName,
+		exch:     exch,
 	}, nil
+}
+
+func (h SignalHandler) GetOrderType() data.OrderType {
+	switch s := strings.ToLower(h.override.Get("order")); s {
+	case "limit":
+		return data.LimitOrder
+	case "market":
+		return data.MarketOrder
+	}
+
+	switch strings.ToLower(h.stringFromEnv("ORDER_TYPE")) {
+	case "limit":
+		return data.LimitOrder
+	case "market":
+		return data.MarketOrder
+	default:
+		panic("unreachable")
+	}
+}
+
+func (h SignalHandler) stringFromEnv(k string) string {
+	if v := h.override.Get(strings.ToLower(k)); v != "" {
+		return v
+	}
+
+	k1 := fmt.Sprintf("%s_%s", h.sig.Strategy, k)
+
+	if s := viper.GetString(k1); s != "" {
+		return s
+	}
+
+	return viper.GetString(k)
+}
+
+func (h SignalHandler) floatFromEnv(k string) float64 {
+	if s := h.override.Get(strings.ToLower(k)); s != "" {
+		if v, err := strconv.ParseFloat(s, 64); err == nil {
+			return v
+		}
+	}
+
+	k1 := fmt.Sprintf("%s_%s", h.sig.Strategy, k)
+	if viper.IsSet(k1) {
+		return viper.GetFloat64(k1)
+	}
+
+	return viper.GetFloat64(k)
 }
 
 func (h SignalHandler) openPosition(side data.Side) error {
@@ -161,43 +183,76 @@ func (h SignalHandler) openPosition(side data.Side) error {
 		return nil
 	}
 
-	pct := getEnvFloat("OPEN_PERCENT", DefaultOpenOrderPercent)
+	pct := h.floatFromEnv("OPEN_PERCENT")
 	orderUsd := total * (pct / 100)
+	h.log.Infof("MaxQuoteValue(%s) total:%v free:%v orderUsd:%v", h.sym, total, free, orderUsd)
+
 	if freeUsd := free * 0.9; freeUsd < orderUsd {
 		h.log.Infof("low collateral, trim notional %v -> %v", orderUsd, freeUsd)
 		orderUsd = freeUsd
 	}
 
 	if orderUsd < market.MinNotional {
-		h.log.Infof("order size too small (%v < %v), skip %v action", orderUsd, side, market.MinNotional)
+		h.log.Infof("order size too small (%v < %v), skip %v action", orderUsd, market.MinNotional, side)
 		return nil
 	}
 
-	return h.exch.MarketOrder(h.sym, side, &orderUsd, nil)
+	if h.GetOrderType() == data.MarketOrder {
+		_, err = h.exch.MarketOrder(h.sym, side, &orderUsd, nil)
+		return err
+	}
+
+	px, err := h.bestQuotePrice(side)
+	if err != nil {
+		return err
+	}
+
+	oid, err := h.exch.LimitOrder(h.sym, side, px, orderUsd/px, false, false)
+	if err != nil {
+		return err
+	}
+
+	go h.followUpLimitOrder(oid)
+	return nil
 }
 
-func (h SignalHandler) closeIfAnyPosition() error {
+func (h SignalHandler) closeIfAnyPositionNow(holding data.Side) error {
 	pos, err := h.exch.GetPosition(h.sym)
 	if err != nil {
 		return err
 	}
-	if pos == 0 {
-		h.log.Info("no position to close")
-		return nil
+	switch holding {
+	case data.Buy:
+		if pos > 0 {
+			return h.closePosition(true)
+		}
+	case data.Sell:
+		if pos < 0 {
+			return h.closePosition(true)
+		}
 	}
-
-	return h.closePosition()
+	h.log.Info("no position to close")
+	return nil
 }
 
 func (h SignalHandler) longPosition() error {
-	if err := h.closeIfAnyPosition(); err != nil {
+	err := h.closeIfAnyPositionNow(data.Sell)
+	if err != nil {
 		return err
 	}
-	return h.openPosition(data.Buy)
+
+	for i := 0; i < 3; i++ {
+		if err = h.openPosition(data.Buy); err == nil {
+			return nil
+		}
+		h.log.Infof("#%d err:%v wait a second and retry", i, err)
+		time.Sleep(3 * time.Second)
+	}
+	return err
 }
 
 func (h SignalHandler) shortPosition() error {
-	if err := h.closeIfAnyPosition(); err != nil {
+	if err := h.closeIfAnyPositionNow(data.Buy); err != nil {
 		return err
 	}
 
@@ -208,25 +263,31 @@ func (h SignalHandler) shortPosition() error {
 		return nil
 	}
 
-	return h.openPosition(data.Sell)
-}
-
-func (h SignalHandler) reducePosition() error {
-	pct := getEnvFloat("REDUCE_PERCENT", DefaultReducePositionPercent)
-
 	var err error
 	for i := 0; i < 3; i++ {
-		err = h.closePartialPosition(pct)
-		if err == nil {
+		if err = h.openPosition(data.Sell); err == nil {
 			return nil
 		}
-		h.log.Infof("#%d wait a second and retry", i)
+		h.log.Infof("#%d err:%v wait a second and retry", i, err)
 		time.Sleep(3 * time.Second)
 	}
 	return err
 }
 
-func (h SignalHandler) closePartialPosition(pct float64) error {
+func (h SignalHandler) reducePosition() error {
+	pct := h.floatFromEnv("REDUCE_PERCENT")
+	var err error
+	for i := 0; i < 3; i++ {
+		if err = h.closePartialPosition(pct, false); err == nil {
+			return nil
+		}
+		h.log.Infof("#%d err:%v wait a second and retry", i, err)
+		time.Sleep(3 * time.Second)
+	}
+	return err
+}
+
+func (h SignalHandler) closePartialPosition(pct float64, force bool) error {
 	pos, err := h.exch.GetPosition(h.sym)
 	if err != nil {
 		return err
@@ -244,18 +305,30 @@ func (h SignalHandler) closePartialPosition(pct float64) error {
 		offsetSide = data.Buy
 	}
 	size := pos * pct / 100
-	if err := h.exch.MarketOrder(h.sym, offsetSide, nil, &size); err != nil {
-		h.log.Infof("close position error: %v", err)
+
+	if force || h.GetOrderType() == data.MarketOrder {
+		_, err = h.exch.MarketOrder(h.sym, offsetSide, nil, &size)
 		return err
 	}
 
+	px, err := h.bestQuotePrice(offsetSide)
+	if err != nil {
+		return err
+	}
+
+	oid, err := h.exch.LimitOrder(h.sym, offsetSide, px, size, false, false)
+	if err != nil {
+		return err
+	}
+
+	go h.followUpLimitOrder(oid)
 	return nil
 }
 
-func (h SignalHandler) closePosition() error {
+func (h SignalHandler) closePosition(force bool) error {
 	var err error
 	for i := 0; i < 3; i++ {
-		err = h.closePartialPosition(100)
+		err = h.closePartialPosition(100, force)
 		if err == nil {
 			return nil
 		}
@@ -268,7 +341,7 @@ func (h SignalHandler) closePosition() error {
 func (h SignalHandler) stopLossPosition() error {
 	var err error
 	for i := 0; i < 3; i++ {
-		err = h.closePartialPosition(100)
+		err = h.closePartialPosition(100, true)
 		if err == nil {
 			return nil
 		}
@@ -278,16 +351,50 @@ func (h SignalHandler) stopLossPosition() error {
 	return err
 }
 
-func getEnvFloat(key string, _default float64) float64 {
-	res, ok := os.LookupEnv(key)
-	if !ok {
-		return _default
-	}
-
-	val, err := strconv.ParseFloat(res, 64)
+func (h SignalHandler) bestQuotePrice(side data.Side) (float64, error) {
+	ob, err := h.exch.GetOrderBook(h.sym)
 	if err != nil {
-		return _default
+		return 0, err
 	}
 
-	return val
+	var px float64
+	if side == data.Buy {
+		px = ob.Bid[0].Px
+		if px*ob.Bid[0].Size < 100 {
+			px = ob.Bid[1].Px
+		}
+	} else if side == data.Sell {
+		px = ob.Ask[0].Px
+		if px*ob.Ask[0].Size < 100 {
+			px = ob.Ask[1].Px
+		}
+	}
+
+	return px, nil
+}
+
+func (h SignalHandler) followUpLimitOrder(oid string) {
+	d := viper.GetDuration("FOLLOWUP_LIMIT_ORDER")
+	h.log.Infof("followup limit order %s after %v", oid, d)
+	time.Sleep(d)
+
+	od, err := h.exch.GetOrder(h.sym, oid)
+	if err != nil {
+		h.log.Warnf("followup limit order %s failed, err:%v", oid, err)
+		return
+	}
+
+	if od.RemainingSize == 0 {
+		h.log.Infof("limit order all filled")
+		return
+	}
+
+	if err := h.exch.CancelOrder(h.sym, oid); err != nil {
+		h.log.Warnf("cancel limit order %s failed, err:%v", oid, err)
+		return
+	}
+
+	oid2, err := h.exch.MarketOrder(od.Pair.Name, od.Side, nil, &od.RemainingSize)
+	h.log.Infof("limit-order:%s market-order:%s size:%v err:%v",
+		oid, oid2, od.RemainingSize, err)
 }

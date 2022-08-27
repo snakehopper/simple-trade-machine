@@ -9,7 +9,9 @@ import (
 	"io/ioutil"
 	"math"
 	"net/url"
+	"strconv"
 	"strings"
+	"time"
 )
 
 type Api struct {
@@ -60,9 +62,6 @@ func (a Api) GetMarket(sym string) (*data.Market, error) {
 				}
 			}
 			return &data.Market{
-				Bid:         0, //TODO
-				Ask:         0, //TODO
-				Last:        0, //TODO
 				Type:        data.Future,
 				TickSize:    tickSize,
 				MinNotional: minNotional,
@@ -70,6 +69,30 @@ func (a Api) GetMarket(sym string) (*data.Market, error) {
 		}
 	}
 	return nil, fmt.Errorf("symbol %v not found", sym)
+}
+
+func (a Api) GetOrderBook(sym string) (*data.OrderBook, error) {
+	res, err := a.OrderBook(sym)
+	if err != nil {
+		return nil, err
+	}
+
+	var out = &data.OrderBook{
+		Bid: make([]data.OrderBookLevel, 0),
+		Ask: make([]data.OrderBookLevel, 0),
+	}
+	for _, ask := range res.Asks {
+		px, _ := ask[0].Float64()
+		sz, _ := ask[1].Float64()
+		out.Ask = append(out.Ask, data.OrderBookLevel{Px: px, Size: sz})
+	}
+	for _, bid := range res.Bids {
+		px, _ := bid[0].Float64()
+		sz, _ := bid[1].Float64()
+		out.Bid = append(out.Ask, data.OrderBookLevel{Px: px, Size: sz})
+	}
+
+	return out, nil
 }
 
 func (a Api) GetPair(sym string) (*data.Pair, error) {
@@ -97,10 +120,10 @@ func (a Api) GetPosition(sym string) (float64, error) {
 	return pos.PositionAmt, nil
 }
 
-func (a Api) LimitOrder(sym string, side data.Side, px float64, qty float64, ioc bool, _postOnly bool) error {
+func (a Api) LimitOrder(sym string, side data.Side, px float64, qty float64, ioc bool, _postOnly bool) (string, error) {
 	exch, err := a.ExchangeInfo()
 	if err != nil {
-		return err
+		return "", err
 	}
 	var v = url.Values{}
 	v.Set("side", strings.ToUpper(string(side)))
@@ -112,38 +135,42 @@ func (a Api) LimitOrder(sym string, side data.Side, px float64, qty float64, ioc
 		v.Set("timeInForce", "GTC")
 	}
 	rounded := exch.RoundLotSize(sym, qty)
+	if rounded == 0 {
+		a.log.Infof("%v rounded quantity is 0, skip place order", qty)
+		return "", nil
+	}
 	v.Set("quantity", fmt.Sprint(rounded))
 	v.Set("price", fmt.Sprint(px))
 	resp, err := a.Post("/fapi/v1/order", v, true)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	defer resp.Body.Close()
 
 	bs, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	var out OrderResp
 	if err := json.Unmarshal(bs, &out); err != nil {
-		return err
+		return "", err
 	}
 
 	if out.Code != 0 {
-		return fmt.Errorf("limit order error: %v", out.Msg)
+		return "", fmt.Errorf("limit order error: %v", out.Msg)
 	}
 
 	a.log.Info("<", strings.TrimSpace(string(bs)))
 
-	return nil
+	return strconv.Itoa(out.OrderId), nil
 }
 
-func (a Api) MarketOrder(sym string, side data.Side, quoteQty *float64, baseQty *float64) error {
+func (a Api) MarketOrder(sym string, side data.Side, quoteQty *float64, baseQty *float64) (string, error) {
 	exch, err := a.ExchangeInfo()
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	var v = url.Values{}
@@ -157,7 +184,7 @@ func (a Api) MarketOrder(sym string, side data.Side, quoteQty *float64, baseQty 
 	} else {
 		tk, err := a.OrderBookTicker(sym)
 		if err != nil {
-			return err
+			return "", err
 		}
 		if side == data.Buy {
 			rounded := exch.RoundLotSize(sym, *quoteQty/tk.AskPrice)
@@ -167,7 +194,64 @@ func (a Api) MarketOrder(sym string, side data.Side, quoteQty *float64, baseQty 
 			v.Set("quantity", fmt.Sprint(rounded))
 		}
 	}
+	if v.Get("quantity") == "0" {
+		a.log.Infof("rounded quantity is 0, skip place order")
+		return "", nil
+	}
+
 	resp, err := a.Post("/fapi/v1/order", v, true)
+	if err != nil {
+		return "", err
+	}
+
+	defer resp.Body.Close()
+
+	bs, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	var out OrderResp
+	if err := json.Unmarshal(bs, &out); err != nil {
+		return "", err
+	}
+
+	if out.Code != 0 {
+		return "", fmt.Errorf("market order error: %v", out.Msg)
+	}
+
+	a.log.Info("<", strings.TrimSpace(string(bs)))
+
+	return strconv.Itoa(out.OrderId), nil
+}
+
+func (a Api) GetOrder(sym, oid string) (*data.OrderStatus, error) {
+	od, err := a.OrderStatus(sym, oid)
+	if err != nil {
+		return nil, err
+	} else if od.Code != 0 {
+		err = fmt.Errorf("fetch order status error code:%v msg:%v", od.Code, od.Msg)
+		return nil, err
+	}
+
+	return &data.OrderStatus{
+		Id:            strconv.Itoa(od.OrderId),
+		Pair:          a.GetTradingPair(sym),
+		Type:          data.OrderType(strings.ToLower(od.Type)),
+		Side:          data.Side(strings.ToLower(od.Side)),
+		Price:         od.Price,
+		FilledSize:    od.ExecutedQty,
+		RemainingSize: od.OrigQty - od.ExecutedQty,
+		CreatedAt:     time.Unix(od.Time/1000, 0),
+	}, nil
+}
+
+func (a Api) CancelOrder(sym, oid string) error {
+	var v = url.Values{}
+	v.Set("symbol", sym)
+	v.Set("orderId", oid)
+
+	resp, err := a.Delete("/fapi/v1/order", v, true)
 	if err != nil {
 		return err
 	}
@@ -185,10 +269,8 @@ func (a Api) MarketOrder(sym string, side data.Side, quoteQty *float64, baseQty 
 	}
 
 	if out.Code != 0 {
-		return fmt.Errorf("market order error: %v", out.Msg)
+		return fmt.Errorf("%v", string(bs))
 	}
-
-	a.log.Info("<", strings.TrimSpace(string(bs)))
 
 	return nil
 }
