@@ -79,7 +79,7 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 	case REDUCE:
 		err = h.reducePosition()
 	case CLOSE:
-		err = h.closePosition()
+		err = h.closePosition(false)
 	case STOP_LOSS:
 		err = h.stopLossPosition()
 	default:
@@ -208,21 +208,27 @@ func (h SignalHandler) openPosition(side data.Side) error {
 	return h.exch.LimitOrder(h.sym, side, px, orderUsd/px, false, false)
 }
 
-func (h SignalHandler) closeIfAnyPosition() error {
+func (h SignalHandler) closeIfAnyPositionNow(holding data.Side) error {
 	pos, err := h.exch.GetPosition(h.sym)
 	if err != nil {
 		return err
 	}
-	if pos == 0 {
-		h.log.Info("no position to close")
-		return nil
+	switch holding {
+	case data.Buy:
+		if pos > 0 {
+			return h.closePosition(true)
+		}
+	case data.Sell:
+		if pos < 0 {
+			return h.closePosition(true)
+		}
 	}
-
-	return h.closePosition()
+	h.log.Info("no position to close")
+	return nil
 }
 
 func (h SignalHandler) longPosition() error {
-	err := h.closeIfAnyPosition()
+	err := h.closeIfAnyPositionNow(data.Sell)
 	if err != nil {
 		return err
 	}
@@ -238,7 +244,7 @@ func (h SignalHandler) longPosition() error {
 }
 
 func (h SignalHandler) shortPosition() error {
-	if err := h.closeIfAnyPosition(); err != nil {
+	if err := h.closeIfAnyPositionNow(data.Buy); err != nil {
 		return err
 	}
 
@@ -304,10 +310,10 @@ func (h SignalHandler) closePartialPosition(pct float64, force bool) error {
 	return h.exch.LimitOrder(h.sym, offsetSide, px, size, false, false)
 }
 
-func (h SignalHandler) closePosition() error {
+func (h SignalHandler) closePosition(force bool) error {
 	var err error
 	for i := 0; i < 3; i++ {
-		err = h.closePartialPosition(100, false)
+		err = h.closePartialPosition(100, force)
 		if err == nil {
 			return nil
 		}

@@ -12,6 +12,7 @@ type Exchange interface {
 	GetMarket(sym string) (*Market, error)
 	GetOrderBook(sym string) (*OrderBook, error)
 
+	//GetPosition return signed position
 	GetPosition(sym string) (float64, error)
 	LimitOrder(sym string, side Side, px float64, qty float64, ioc bool, postOnly bool) error
 	MarketOrder(sym string, side Side, px *float64, qty *float64) error
