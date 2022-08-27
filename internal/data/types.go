@@ -1,5 +1,7 @@
 package data
 
+import "time"
+
 type Exchange interface {
 	//MaxQuoteValue return order available to quote, e.g. free collateral * leverage
 	//Spot instrument might return without leverage
@@ -14,8 +16,11 @@ type Exchange interface {
 
 	//GetPosition return signed position
 	GetPosition(sym string) (float64, error)
-	LimitOrder(sym string, side Side, px float64, qty float64, ioc bool, postOnly bool) error
-	MarketOrder(sym string, side Side, px *float64, qty *float64) error
+
+	LimitOrder(sym string, side Side, px float64, qty float64, ioc bool, postOnly bool) (string, error)
+	MarketOrder(sym string, side Side, px *float64, qty *float64) (string, error)
+	GetOrder(sym, oid string) (*OrderStatus, error)
+	CancelOrder(sym, oid string) error
 }
 
 type Side string
@@ -72,4 +77,15 @@ func (p Pair) IsFuture() bool {
 
 func (p Pair) IsSpot() bool {
 	return p.Type == Spot
+}
+
+type OrderStatus struct {
+	Id            string
+	Pair          Pair
+	Type          OrderType
+	Side          Side
+	Price         float64
+	FilledSize    float64
+	RemainingSize float64
+	CreatedAt     time.Time
 }

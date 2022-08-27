@@ -193,18 +193,6 @@ func (a Api) PlaceTriggerOrder(market string, side string, size float64,
 	return newTriggerOrderResponse, err
 }
 
-func (a Api) CancelOrder(orderId int64) (Response, error) {
-	var deleteResponse Response
-	id := strconv.FormatInt(orderId, 10)
-	resp, err := a._delete("orders/"+id, []byte(""))
-	if err != nil {
-		fmt.Println("Error CancelOrder", err)
-		return deleteResponse, err
-	}
-	err = _processResponse(resp, &deleteResponse)
-	return deleteResponse, err
-}
-
 func (a Api) CancelTriggerOrder(orderId int64) (Response, error) {
 	var deleteResponse Response
 	id := strconv.FormatInt(orderId, 10)

@@ -10,7 +10,9 @@ import (
 	"io/ioutil"
 	"math"
 	"net/url"
+	"strconv"
 	"strings"
+	"time"
 )
 
 type Api struct {
@@ -138,10 +140,10 @@ func (a Api) GetPosition(sym string) (float64, error) {
 	return 0, fmt.Errorf("unknown symbol %v", sym)
 }
 
-func (a Api) LimitOrder(sym string, side data.Side, px float64, qty float64, ioc bool, _postOnly bool) error {
+func (a Api) LimitOrder(sym string, side data.Side, px float64, qty float64, ioc bool, _postOnly bool) (string, error) {
 	exch, err := a.ExchangeInfo(sym)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	var v = url.Values{}
@@ -156,41 +158,41 @@ func (a Api) LimitOrder(sym string, side data.Side, px float64, qty float64, ioc
 	rounded := exch.RoundLotSize(sym, math.Abs(qty))
 	if rounded == 0 {
 		a.log.Infof("%f rounded quantity is 0, skip place order", qty)
-		return nil
+		return "", nil
 	}
 
 	v.Set("quantity", fmt.Sprint(rounded))
 	v.Set("price", fmt.Sprint(px))
 	resp, err := a.Post("/api/v3/order", v, true)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	defer resp.Body.Close()
 
 	bs, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	var out OrderResp
 	if err := json.Unmarshal(bs, &out); err != nil {
 		a.log.Infof("unmarshal OrderResp err:%v payload:%v", err, strings.TrimSpace(string(bs)))
-		return err
+		return "", err
 	}
 
 	if out.Code != 0 {
-		return fmt.Errorf("limit order error: %v", out.Msg)
+		return "", fmt.Errorf("limit order error: %v", out.Msg)
 	}
 
 	a.log.Info("<", strings.TrimSpace(string(bs)))
-	return nil
+	return strconv.Itoa(out.OrderId), nil
 }
 
-func (a Api) MarketOrder(sym string, side data.Side, quoteQty *float64, baseQty *float64) error {
+func (a Api) MarketOrder(sym string, side data.Side, quoteQty *float64, baseQty *float64) (string, error) {
 	exch, err := a.ExchangeInfo(sym)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	var v = url.Values{}
@@ -201,7 +203,7 @@ func (a Api) MarketOrder(sym string, side data.Side, quoteQty *float64, baseQty 
 		rounded := exch.RoundTickSize(sym, *quoteQty)
 		if rounded < exch.MinNotional(sym) {
 			a.log.Info("rounded quoteOrderQty smaller than MIN_NOTIONAL, skip place order")
-			return nil
+			return "", nil
 		}
 		v.Set("quoteOrderQty", fmt.Sprint(rounded))
 	}
@@ -209,19 +211,70 @@ func (a Api) MarketOrder(sym string, side data.Side, quoteQty *float64, baseQty 
 		rounded := exch.RoundLotSize(sym, math.Abs(*baseQty))
 		if rounded == 0 {
 			a.log.Info("rounded quantity smaller than LOT_SIZE, skip place order")
-			return nil
+			return "", nil
 		}
 		tk, err := a.OrderBookTicker(sym)
 		if err != nil {
-			return err
+			return "", err
 		}
 		if rounded*tk.BidPrice < exch.MinNotional(sym) {
 			a.log.Info("rounded quoteOrderQty smaller than MIN_NOTIONAL, skip place order")
-			return nil
+			return "", nil
 		}
 		v.Set("quantity", fmt.Sprint(rounded))
 	}
 	resp, err := a.Post("/api/v3/order", v, true)
+	if err != nil {
+		return "", err
+	}
+
+	defer resp.Body.Close()
+
+	bs, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	var out OrderResp
+	if err := json.Unmarshal(bs, &out); err != nil {
+		return "", err
+	}
+
+	if out.Code != 0 {
+		return "", fmt.Errorf("market order error: %v", out.Msg)
+	}
+
+	a.log.Info("<", strings.TrimSpace(string(bs)))
+	return strconv.Itoa(out.OrderId), nil
+}
+
+func (a Api) GetOrder(sym, oid string) (*data.OrderStatus, error) {
+	od, err := a.OrderStatus(sym, oid)
+	if err != nil {
+		return nil, err
+	} else if od.Code != 0 {
+		err = fmt.Errorf("fetch order status error code:%v msg:%v", od.Code, od.Msg)
+		return nil, err
+	}
+
+	return &data.OrderStatus{
+		Id:            strconv.Itoa(od.OrderId),
+		Pair:          a.GetTradingPair(sym),
+		Type:          data.OrderType(strings.ToLower(od.Type)),
+		Side:          data.Side(strings.ToLower(od.Side)),
+		Price:         od.Price,
+		FilledSize:    od.ExecutedQty,
+		RemainingSize: od.OrigQty - od.ExecutedQty,
+		CreatedAt:     time.Unix(od.Time/1000, 0),
+	}, nil
+}
+
+func (a Api) CancelOrder(sym, oid string) error {
+	var v = url.Values{}
+	v.Set("symbol", sym)
+	v.Set("orderId", oid)
+
+	resp, err := a.Delete("/api/v3/order", v, true)
 	if err != nil {
 		return err
 	}
@@ -233,15 +286,14 @@ func (a Api) MarketOrder(sym string, side data.Side, quoteQty *float64, baseQty 
 		return err
 	}
 
-	var out OrderResp
+	var out OrderStatusResp
 	if err := json.Unmarshal(bs, &out); err != nil {
 		return err
 	}
 
 	if out.Code != 0 {
-		return fmt.Errorf("market order error: %v", out.Msg)
+		return fmt.Errorf("%v", string(bs))
 	}
 
-	a.log.Info("<", strings.TrimSpace(string(bs)))
 	return nil
 }

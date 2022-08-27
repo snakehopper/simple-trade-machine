@@ -129,39 +129,80 @@ func (a Api) GetPair(sym string) (*data.Pair, error) {
 	return &p, nil
 }
 
-func (a Api) LimitOrder(sym string, side data.Side, px float64, qty float64, ioc bool, postOnly bool) error {
+func (a Api) LimitOrder(sym string, side data.Side, px float64, qty float64, ioc bool, postOnly bool) (string, error) {
 	size := math.Abs(qty)
 	resp, err := a.PlaceOrder(sym, strings.ToLower(string(side)), px, "limit", size, false, false, false)
 	if err != nil {
 		a.log.Infof("place limit order error: %v", err)
-		return err
+		return "", err
 	} else if !resp.Success {
-		return errors.New("place limit order unknown error")
+		return "", errors.New("place limit order unknown error")
 	}
 
-	return nil
+	return fmt.Sprint(resp.Result.ID), nil
 }
 
-func (a Api) MarketOrder(sym string, side data.Side, quoteUnit *float64, qty *float64) error {
+func (a Api) MarketOrder(sym string, side data.Side, quoteUnit *float64, qty *float64) (string, error) {
 	var size float64
 	if qty != nil {
 		size = math.Abs(*qty)
 	} else if quoteUnit != nil {
 		m, err := a.GetOrderBook(sym)
 		if err != nil {
-			return fmt.Errorf("get price error when MarketOrder: %w", err)
+			return "", fmt.Errorf("get price error when MarketOrder: %w", err)
 		}
 		size = *quoteUnit / m.MidPx()
 	} else {
-		return fmt.Errorf("either px or qty should defined")
+		return "", fmt.Errorf("either px or qty should defined")
 	}
 	resp, err := a.PlaceOrder(sym, strings.ToLower(string(side)), 0, "market", size,
 		false, true, false)
 	if err != nil {
 		a.log.Infof("place market order error: %v", err)
-		return err
+		return "", err
 	} else if !resp.Success {
-		return errors.New("place order unknown error")
+		return "", errors.New("place order unknown error")
+	}
+
+	return fmt.Sprint(resp.Result.ID), nil
+}
+
+func (a Api) GetOrder(sym, oid string) (*data.OrderStatus, error) {
+	ul := fmt.Sprintf("orders/%s", oid)
+	resp, err := a._get(ul, []byte(""))
+	if err != nil {
+		a.log.Infof("Error GetMarket: %v", err)
+		return nil, err
+	}
+	var mResp structs.OrderStatus
+	err = _processResponse(resp, &mResp)
+	if err != nil {
+		a.log.Info("<", resp.Body)
+		return nil, err
+	}
+
+	od := mResp.Result
+	return &data.OrderStatus{
+		Id:            fmt.Sprint(od.ID),
+		Pair:          a.GetTradingPair(sym),
+		Type:          data.OrderType(od.Type),
+		Side:          data.Side(od.Side),
+		Price:         od.Price,
+		FilledSize:    od.FilledSize,
+		RemainingSize: od.RemainingSize,
+		CreatedAt:     od.CreatedAt,
+	}, nil
+}
+
+func (a Api) CancelOrder(sym, oid string) error {
+	var deleteResponse Response
+	resp, err := a._delete("orders/"+oid, []byte(""))
+	if err != nil {
+		a.log.Warnf("Error CancelOrder %v: %v", oid, err)
+		return err
+	}
+	if err = _processResponse(resp, &deleteResponse); err != nil {
+		return err
 	}
 
 	return nil

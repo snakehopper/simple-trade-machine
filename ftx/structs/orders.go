@@ -52,6 +52,11 @@ type OrderHistory struct {
 	HasMoreData bool    `json:"hasMoreData"`
 }
 
+type OrderStatus struct {
+	Success bool  `json:"success"`
+	Result  Order `json:"result"`
+}
+
 type NewTriggerOrder struct {
 	Market           string  `json:"market"`
 	Side             string  `json:"side"`

@@ -111,6 +111,35 @@ func (a Api) AccountInfo(sym ...string) (*AccountResp, error) {
 	return &out, nil
 }
 
+func (a Api) OrderStatus(sym, oid string) (*OrderResp, error) {
+	var v = url.Values{}
+	v.Set("symbol", sym)
+	v.Set("orderId", oid)
+
+	resp, err := a.Get("/fapi/v1/order", v, true)
+	if err != nil {
+		return nil, err
+	}
+
+	defer resp.Body.Close()
+
+	bs, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var out OrderResp
+	if err := json.Unmarshal(bs, &out); err != nil {
+		return nil, err
+	}
+
+	if out.Code != 0 {
+		return &out, fmt.Errorf("%v", string(bs))
+	}
+
+	return &out, nil
+}
+
 //GetTradingPair return cached symbol info
 func (a Api) GetTradingPair(sym string) data.Pair {
 	res, ok := khMarket[sym]

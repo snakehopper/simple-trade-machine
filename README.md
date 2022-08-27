@@ -110,7 +110,8 @@ Google Cloud functions 服務中斷的話，將會錯過開倉、平倉訊號！
 | OPEN_PERCENT   | ! 每次開倉比例：10 代表每次使用十份之一的資金下單          |
 | REDUCE_PERCENT | ! 每次減倉比例：50 代表每次減倉一半的倉位              |
 | SPOT_OPEN_X    | 現貨的開倉量＝可用資金＊OPEN_PERCENT＊SPOT_OPEN_X |
-| ORDER_TYPE     | ! 使用價單或市價開單，`limit` `market`          |
+| ORDER_TYPE     | ! 使用限價單或市價開單，`limit` `market`        |
+| FOLLOWUP_LIMIT_ORDER     | 限價單多久沒成交改市價單 例：50s, 1m, 2m30s        |
 | FTX_APIKEY     | FTX 網頁申請的 API Key                    |   
 | FTX_SECRET     | FTX 網頁申請的 API Secret                 |   
 | FTX_SUBACCOUNT | (選填) main 帳號填空 `""`                  |   

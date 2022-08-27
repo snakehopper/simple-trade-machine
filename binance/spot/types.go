@@ -218,21 +218,43 @@ type OrderResp struct {
 }
 
 type MarginOrderResp struct {
-	ClientOrderId       string `json:"clientOrderId"`
-	CummulativeQuoteQty string `json:"cummulativeQuoteQty"`
-	ExecutedQty         string `json:"executedQty"`
-	IcebergQty          string `json:"icebergQty"`
-	IsWorking           bool   `json:"isWorking"`
-	OrderId             int    `json:"orderId"`
-	OrigQty             string `json:"origQty"`
-	Price               string `json:"price"`
-	Side                string `json:"side"`
-	Status              string `json:"status"`
-	StopPrice           string `json:"stopPrice"`
-	Symbol              string `json:"symbol"`
-	IsIsolated          bool   `json:"isIsolated"`
-	Time                int64  `json:"time"`
-	TimeInForce         string `json:"timeInForce"`
-	Type                string `json:"type"`
-	UpdateTime          int64  `json:"updateTime"`
+	ClientOrderId       string  `json:"clientOrderId"`
+	CummulativeQuoteQty string  `json:"cummulativeQuoteQty"`
+	ExecutedQty         float64 `json:"executedQty,string"`
+	IcebergQty          string  `json:"icebergQty"`
+	IsWorking           bool    `json:"isWorking"`
+	OrderId             int     `json:"orderId"`
+	OrigQty             float64 `json:"origQty,string"`
+	Price               float64 `json:"price,string"`
+	Side                string  `json:"side"`
+	Status              string  `json:"status"`
+	StopPrice           string  `json:"stopPrice"`
+	Symbol              string  `json:"symbol"`
+	IsIsolated          bool    `json:"isIsolated"`
+	Time                int64   `json:"time"`
+	TimeInForce         string  `json:"timeInForce"`
+	Type                string  `json:"type"`
+	UpdateTime          int64   `json:"updateTime"`
+}
+
+type OrderStatusResp struct {
+	ErrorResp
+	Symbol              string  `json:"symbol"`
+	OrderId             int     `json:"orderId"`
+	OrderListId         int     `json:"orderListId"`
+	ClientOrderId       string  `json:"clientOrderId"`
+	Price               float64 `json:"price,string"`
+	OrigQty             float64 `json:"origQty,string"`
+	ExecutedQty         float64 `json:"executedQty,string"`
+	CummulativeQuoteQty string  `json:"cummulativeQuoteQty"`
+	Status              string  `json:"status"`
+	TimeInForce         string  `json:"timeInForce"`
+	Type                string  `json:"type"`
+	Side                string  `json:"side"`
+	StopPrice           string  `json:"stopPrice"`
+	IcebergQty          string  `json:"icebergQty"`
+	Time                int64   `json:"time"`
+	UpdateTime          int64   `json:"updateTime"`
+	IsWorking           bool    `json:"isWorking"`
+	OrigQuoteOrderQty   string  `json:"origQuoteOrderQty"`
 }

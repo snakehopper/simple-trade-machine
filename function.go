@@ -198,14 +198,22 @@ func (h SignalHandler) openPosition(side data.Side) error {
 	}
 
 	if h.GetOrderType() == data.MarketOrder {
-		return h.exch.MarketOrder(h.sym, side, &orderUsd, nil)
+		_, err = h.exch.MarketOrder(h.sym, side, &orderUsd, nil)
+		return err
 	}
 
 	px, err := h.bestQuotePrice(side)
 	if err != nil {
 		return err
 	}
-	return h.exch.LimitOrder(h.sym, side, px, orderUsd/px, false, false)
+
+	oid, err := h.exch.LimitOrder(h.sym, side, px, orderUsd/px, false, false)
+	if err != nil {
+		return err
+	}
+
+	go h.followUpLimitOrder(oid)
+	return nil
 }
 
 func (h SignalHandler) closeIfAnyPositionNow(holding data.Side) error {
@@ -299,7 +307,8 @@ func (h SignalHandler) closePartialPosition(pct float64, force bool) error {
 	size := pos * pct / 100
 
 	if force || h.GetOrderType() == data.MarketOrder {
-		return h.exch.MarketOrder(h.sym, offsetSide, nil, &size)
+		_, err = h.exch.MarketOrder(h.sym, offsetSide, nil, &size)
+		return err
 	}
 
 	px, err := h.bestQuotePrice(offsetSide)
@@ -307,7 +316,13 @@ func (h SignalHandler) closePartialPosition(pct float64, force bool) error {
 		return err
 	}
 
-	return h.exch.LimitOrder(h.sym, offsetSide, px, size, false, false)
+	oid, err := h.exch.LimitOrder(h.sym, offsetSide, px, size, false, false)
+	if err != nil {
+		return err
+	}
+
+	go h.followUpLimitOrder(oid)
+	return nil
 }
 
 func (h SignalHandler) closePosition(force bool) error {
@@ -356,4 +371,30 @@ func (h SignalHandler) bestQuotePrice(side data.Side) (float64, error) {
 	}
 
 	return px, nil
+}
+
+func (h SignalHandler) followUpLimitOrder(oid string) {
+	d := viper.GetDuration("FOLLOWUP_LIMIT_ORDER")
+	h.log.Infof("followup limit order %s after %v", oid, d)
+	time.Sleep(d)
+
+	od, err := h.exch.GetOrder(h.sym, oid)
+	if err != nil {
+		h.log.Warnf("followup limit order %s failed, err:%v", oid, err)
+		return
+	}
+
+	if od.RemainingSize == 0 {
+		h.log.Infof("limit order all filled")
+		return
+	}
+
+	if err := h.exch.CancelOrder(h.sym, oid); err != nil {
+		h.log.Warnf("cancel limit order %s failed, err:%v", oid, err)
+		return
+	}
+
+	oid2, err := h.exch.MarketOrder(od.Pair.Name, od.Side, nil, &od.RemainingSize)
+	h.log.Infof("limit-order:%s market-order:%s size:%v err:%v",
+		oid, oid2, od.RemainingSize, err)
 }
