@@ -134,7 +134,7 @@ func (a Api) LimitOrder(sym string, side data.Side, px float64, qty float64, ioc
 	} else {
 		v.Set("timeInForce", "GTC")
 	}
-	rounded := exch.RoundLotSize(sym, qty)
+	rounded := exch.RoundLotSize(sym, math.Abs(qty))
 	if rounded == 0 {
 		a.log.Infof("%v rounded quantity is 0, skip place order", qty)
 		return "", nil
