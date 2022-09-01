@@ -82,9 +82,9 @@ func parseAction(msg string) (Action, error) {
 		return SHORT, nil
 	case "多方減倉訊號", "空方減倉訊號":
 		return REDUCE, nil
-	case "多方停損訊號", "空方停損訊號":
+	case "多方停損訊號", "空方停損訊號", "停損出場":
 		return STOP_LOSS, nil
-	case "多方平倉訊號", "空方平倉訊號":
+	case "多方平倉訊號", "空方平倉訊號", "空方平倉", "多方平倉":
 		return CLOSE, nil
 	default:
 		return UnknownSignal, fmt.Errorf("unknown alert:%v len:%d\n", msg, len(msg))
