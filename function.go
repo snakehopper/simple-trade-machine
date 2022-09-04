@@ -171,6 +171,10 @@ func (h SignalHandler) floatFromEnv(k string) float64 {
 		return viper.GetFloat64(k1)
 	}
 
+	if !viper.IsSet(k) {
+		return -1
+	}
+
 	return viper.GetFloat64(k)
 }
 
@@ -278,6 +282,14 @@ func (h SignalHandler) shortPosition() error {
 
 func (h SignalHandler) reducePosition() error {
 	pct := h.floatFromEnv("REDUCE_PERCENT")
+	if pct < 0 {
+		//using Signal message parse value
+		defaultPct, err := h.sig.ReducePct()
+		if err != nil {
+			return err
+		}
+		pct = defaultPct
+	}
 	var err error
 	for i := 0; i < 3; i++ {
 		if err = h.closePartialPosition(pct, false); err == nil {

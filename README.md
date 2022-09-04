@@ -105,18 +105,18 @@ Google Cloud functions 服務中斷的話，將會錯過開倉、平倉訊號！
 
 ## 環境變數
 
-| 名稱             | 值                                    |
-|----------------|--------------------------------------|
-| OPEN_PERCENT   | ! 每次開倉比例：10 代表每次使用十份之一的資金下單          |
-| REDUCE_PERCENT | ! 每次減倉比例：50 代表每次減倉一半的倉位              |
+| 名稱             | 值                                   |
+|----------------|-------------------------------------|
+| OPEN_PERCENT   | ! 每次開倉比例：10 代表每次使用十份之一的資金下單         |
+| REDUCE_PERCENT | !（選填）每次減倉比例：50 代表每次減倉一半的倉位          |
 | SPOT_OPEN_X    | 現貨的開倉量＝可用資金＊OPEN_PERCENT＊SPOT_OPEN_X |
-| ORDER_TYPE     | ! 使用限價單或市價開單，`limit` `market`        |
-| FOLLOWUP_LIMIT_ORDER     | 限價單多久沒成交改市價單 例：50s, 1m, 2m30s        |
-| FTX_APIKEY     | FTX 網頁申請的 API Key                    |   
-| FTX_SECRET     | FTX 網頁申請的 API Secret                 |   
-| FTX_SUBACCOUNT | (選填) main 帳號填空 `""`                  |   
-| BINANCE_APIKEY | 幣安網頁申請的 API Key                      |   
-| BINANCE_SECRET | 幣安網頁申請的 API Secret                   |   
+| ORDER_TYPE     | ! 使用限價單或市價開單，`limit` `market`       |
+| FOLLOWUP_LIMIT_ORDER     | 限價單多久沒成交改市價單 例：50s, 1m, 2m30s       |
+| FTX_APIKEY     | FTX 網頁申請的 API Key                   |   
+| FTX_SECRET     | FTX 網頁申請的 API Secret                |   
+| FTX_SUBACCOUNT | (選填) main 帳號填空 `""`                 |   
+| BINANCE_APIKEY | 幣安網頁申請的 API Key                     |   
+| BINANCE_SECRET | 幣安網頁申請的 API Secret                  |   
 
 ! 表示可根據策略客製化，例如一般策略都是減倉10%，唯左側拐點多方減倉訊號每次30%" 寫作 `REDUCE_PERCENT: "10"`  `COUNTER_REDUCE_PERCENT: "30"`
  

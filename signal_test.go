@@ -42,3 +42,31 @@ func TestNewSignal(t *testing.T) {
 		assert.Equal(t, d.output.Action, sig.Action, d.input)
 	}
 }
+
+func TestNewSignal_reduce_percent(t *testing.T) {
+	dat := []struct {
+		input  string
+		output float64
+	}{
+		{input: "左側拐點｜多方減倉50%｜2小時｜$0.00436", output: 50},
+		{input: "順勢減倉｜空方減倉10%｜1天｜$14.035", output: 10},
+		{input: "順勢減倉｜多方減倉12.3%｜1天｜$14.035", output: 12.3},
+	}
+
+	for _, d := range dat {
+		sig, err := NewSignal(d.input)
+		assert.Nil(t, err)
+
+		pct, err := sig.ReducePct()
+		assert.Nil(t, err)
+		assert.Equal(t, pct, d.output)
+	}
+
+	t.Run("not reduce action", func(t *testing.T) {
+		sig, err := NewSignal("順勢減倉｜多方訊號｜3小時｜$0.69015")
+		assert.Nil(t, err)
+		_, err = sig.ReducePct()
+		assert.NotNil(t, err)
+	})
+
+}

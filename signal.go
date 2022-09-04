@@ -3,6 +3,8 @@ package function
 
 import (
 	"fmt"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -28,6 +30,7 @@ type Signal struct {
 	Strategy  Strategy
 	Action    Action
 	Triggered time.Time
+	message   *AlertMessage
 }
 
 type AlertMessage struct {
@@ -73,16 +76,25 @@ func NewSignal(s string) (*Signal, error) {
 		Strategy:  stg,
 		Action:    act,
 		Triggered: time.Now(),
+		message:   msg,
 	}, nil
 }
 
+func (s Signal) ReducePct() (float64, error) {
+	if s.Action != REDUCE {
+		return 0, fmt.Errorf("not REDUCE action")
+	}
+
+	pct := regexp.MustCompilePOSIX(`([0-9]*[.])?[0-9]+`).FindString(s.message.Signal)
+	return strconv.ParseFloat(pct, 64)
+}
 func parseAction(msg string) (Action, error) {
 	switch msg {
 	case "空轉多訊號", "多方訊號":
 		return LONG, nil
 	case "多轉空訊號", "空方訊號":
 		return SHORT, nil
-	case "多方減倉訊號", "空方減倉訊號", "多方減倉50%", "多方減倉10%", "空方減倉10%", "空方減倉50%":
+	case "多方減倉訊號", "空方減倉訊號":
 		return REDUCE, nil
 	case "多方停損訊號", "空方停損訊號", "停損出場":
 		return STOP_LOSS, nil
@@ -91,6 +103,11 @@ func parseAction(msg string) (Action, error) {
 	case "空方平倉訊號", "空方平倉":
 		return CLOSE_SHORT, nil
 	default:
+		//retry message with variable
+		switch {
+		case strings.HasPrefix(msg, "多方減倉"), strings.HasPrefix(msg, "空方減倉"):
+			return REDUCE, nil
+		}
 		return UnknownSignal, fmt.Errorf("unknown alert:%v len:%d\n", msg, len(msg))
 	}
 }

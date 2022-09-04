@@ -1,3 +1,10 @@
+#!/bin/bash
+
+set -e
+
+go generate ./...
+go test ./...
+
 FUNCTION_TARGET=AlertHandler
 FUNCTION_NAME=simple-trade-machine
 
