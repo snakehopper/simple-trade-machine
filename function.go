@@ -78,8 +78,10 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 		err = h.shortPosition()
 	case REDUCE:
 		err = h.reducePosition()
-	case CLOSE:
-		err = h.closePosition(false)
+	case CLOSE_LONG:
+		err = h.closeIfAnyPositionNow(data.Buy)
+	case CLOSE_SHORT:
+		err = h.closeIfAnyPositionNow(data.Sell)
 	case STOP_LOSS:
 		err = h.stopLossPosition()
 	default:

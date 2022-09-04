@@ -1,3 +1,4 @@
+//go:generate stringer -type Action -output signal_string.go
 package function
 
 import (
@@ -11,7 +12,8 @@ const (
 	LONG
 	SHORT
 	REDUCE
-	CLOSE
+	CLOSE_LONG
+	CLOSE_SHORT
 	STOP_LOSS
 
 	CounterTrading  Strategy = "COUNTER"
@@ -80,12 +82,14 @@ func parseAction(msg string) (Action, error) {
 		return LONG, nil
 	case "多轉空訊號", "空方訊號":
 		return SHORT, nil
-	case "多方減倉訊號", "空方減倉訊號":
+	case "多方減倉訊號", "空方減倉訊號", "多方減倉50%", "多方減倉10%", "空方減倉10%", "空方減倉50%":
 		return REDUCE, nil
 	case "多方停損訊號", "空方停損訊號", "停損出場":
 		return STOP_LOSS, nil
-	case "多方平倉訊號", "空方平倉訊號", "空方平倉", "多方平倉":
-		return CLOSE, nil
+	case "多方平倉訊號", "多方平倉":
+		return CLOSE_LONG, nil
+	case "空方平倉訊號", "空方平倉":
+		return CLOSE_SHORT, nil
 	default:
 		return UnknownSignal, fmt.Errorf("unknown alert:%v len:%d\n", msg, len(msg))
 	}
@@ -95,7 +99,7 @@ func parseStrategy(msg string) Strategy {
 	switch msg {
 	case "左側拐點":
 		return CounterTrading
-	case "順勢減倉":
+	case "順勢指標", "順勢減倉":
 		return TrendFollowing
 	default:
 		return UnknownStrategy
