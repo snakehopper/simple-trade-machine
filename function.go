@@ -78,8 +78,10 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 		err = h.shortPosition()
 	case REDUCE:
 		err = h.reducePosition()
-	case CLOSE:
-		err = h.closePosition(false)
+	case CLOSE_LONG:
+		err = h.closeIfAnyPositionNow(data.Buy)
+	case CLOSE_SHORT:
+		err = h.closeIfAnyPositionNow(data.Sell)
 	case STOP_LOSS:
 		err = h.stopLossPosition()
 	default:
@@ -167,6 +169,10 @@ func (h SignalHandler) floatFromEnv(k string) float64 {
 	k1 := fmt.Sprintf("%s_%s", h.sig.Strategy, k)
 	if viper.IsSet(k1) {
 		return viper.GetFloat64(k1)
+	}
+
+	if !viper.IsSet(k) {
+		return -1
 	}
 
 	return viper.GetFloat64(k)
@@ -276,6 +282,14 @@ func (h SignalHandler) shortPosition() error {
 
 func (h SignalHandler) reducePosition() error {
 	pct := h.floatFromEnv("REDUCE_PERCENT")
+	if pct < 0 {
+		//using Signal message parse value
+		defaultPct, err := h.sig.ReducePct()
+		if err != nil {
+			return err
+		}
+		pct = defaultPct
+	}
 	var err error
 	for i := 0; i < 3; i++ {
 		if err = h.closePartialPosition(pct, false); err == nil {

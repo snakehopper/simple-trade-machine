@@ -1,7 +1,10 @@
+//go:generate stringer -type Action -output signal_string.go
 package function
 
 import (
 	"fmt"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -11,7 +14,8 @@ const (
 	LONG
 	SHORT
 	REDUCE
-	CLOSE
+	CLOSE_LONG
+	CLOSE_SHORT
 	STOP_LOSS
 
 	CounterTrading  Strategy = "COUNTER"
@@ -26,6 +30,7 @@ type Signal struct {
 	Strategy  Strategy
 	Action    Action
 	Triggered time.Time
+	message   *AlertMessage
 }
 
 type AlertMessage struct {
@@ -71,9 +76,18 @@ func NewSignal(s string) (*Signal, error) {
 		Strategy:  stg,
 		Action:    act,
 		Triggered: time.Now(),
+		message:   msg,
 	}, nil
 }
 
+func (s Signal) ReducePct() (float64, error) {
+	if s.Action != REDUCE {
+		return 0, fmt.Errorf("not REDUCE action")
+	}
+
+	pct := regexp.MustCompilePOSIX(`([0-9]*[.])?[0-9]+`).FindString(s.message.Signal)
+	return strconv.ParseFloat(pct, 64)
+}
 func parseAction(msg string) (Action, error) {
 	switch msg {
 	case "空轉多訊號", "多方訊號":
@@ -84,9 +98,16 @@ func parseAction(msg string) (Action, error) {
 		return REDUCE, nil
 	case "多方停損訊號", "空方停損訊號", "停損出場":
 		return STOP_LOSS, nil
-	case "多方平倉訊號", "空方平倉訊號", "空方平倉", "多方平倉":
-		return CLOSE, nil
+	case "多方平倉訊號", "多方平倉":
+		return CLOSE_LONG, nil
+	case "空方平倉訊號", "空方平倉":
+		return CLOSE_SHORT, nil
 	default:
+		//retry message with variable
+		switch {
+		case strings.HasPrefix(msg, "多方減倉"), strings.HasPrefix(msg, "空方減倉"):
+			return REDUCE, nil
+		}
 		return UnknownSignal, fmt.Errorf("unknown alert:%v len:%d\n", msg, len(msg))
 	}
 }
@@ -95,7 +116,7 @@ func parseStrategy(msg string) Strategy {
 	switch msg {
 	case "左側拐點":
 		return CounterTrading
-	case "順勢減倉":
+	case "順勢指標", "順勢減倉":
 		return TrendFollowing
 	default:
 		return UnknownStrategy
