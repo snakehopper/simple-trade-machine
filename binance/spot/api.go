@@ -159,6 +159,9 @@ func (a Api) LimitOrder(sym string, side data.Side, px float64, qty float64, ioc
 	if rounded == 0 {
 		a.log.Infof("%f rounded quantity is 0, skip place order", qty)
 		return "", nil
+	} else if rounded < exch.MinNotional(sym) {
+		a.log.Info("rounded quoteOrderQty smaller than MIN_NOTIONAL, skip place order")
+		return "", nil
 	}
 
 	v.Set("quantity", fmt.Sprint(rounded))
