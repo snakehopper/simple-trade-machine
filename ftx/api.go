@@ -89,7 +89,7 @@ func (a Api) GetMarket(market string) (*data.Market, error) {
 	return &data.Market{
 		Type:        typ,
 		TickSize:    res.SizeIncrement,
-		MinNotional: res.MinProvideSize,
+		MinNotional: res.MinProvideSize * res.Price,
 	}, nil
 }
 
