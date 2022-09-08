@@ -140,7 +140,7 @@ func (a Api) GetPosition(sym string) (float64, error) {
 	return 0, fmt.Errorf("unknown symbol %v", sym)
 }
 
-func (a Api) LimitOrder(sym string, side data.Side, px float64, qty float64, ioc bool, _postOnly bool) (string, error) {
+func (a Api) LimitOrder(sym string, side data.Side, px float64, qty float64, ioc, _postOnly, _reduceOnly bool) (string, error) {
 	exch, err := a.ExchangeInfo(sym)
 	if err != nil {
 		return "", err
@@ -192,7 +192,7 @@ func (a Api) LimitOrder(sym string, side data.Side, px float64, qty float64, ioc
 	return strconv.Itoa(out.OrderId), nil
 }
 
-func (a Api) MarketOrder(sym string, side data.Side, quoteQty *float64, baseQty *float64) (string, error) {
+func (a Api) MarketOrder(sym string, side data.Side, quoteQty *float64, baseQty *float64, _reduceOnly bool) (string, error) {
 	exch, err := a.ExchangeInfo(sym)
 	if err != nil {
 		return "", err

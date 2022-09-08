@@ -204,7 +204,7 @@ func (h SignalHandler) openPosition(side data.Side) error {
 	}
 
 	if h.GetOrderType() == data.MarketOrder {
-		_, err = h.exch.MarketOrder(h.sym, side, &orderUsd, nil)
+		_, err = h.exch.MarketOrder(h.sym, side, &orderUsd, nil, false)
 		return err
 	}
 
@@ -213,7 +213,7 @@ func (h SignalHandler) openPosition(side data.Side) error {
 		return err
 	}
 
-	oid, err := h.exch.LimitOrder(h.sym, side, px, orderUsd/px, false, false)
+	oid, err := h.exch.LimitOrder(h.sym, side, px, orderUsd/px, false, false, false)
 	if err != nil {
 		return err
 	}
@@ -321,7 +321,7 @@ func (h SignalHandler) closePartialPosition(pct float64, force bool) error {
 	size := pos * pct / 100
 
 	if force || h.GetOrderType() == data.MarketOrder {
-		_, err = h.exch.MarketOrder(h.sym, offsetSide, nil, &size)
+		_, err = h.exch.MarketOrder(h.sym, offsetSide, nil, &size, true)
 		return err
 	}
 
@@ -330,7 +330,7 @@ func (h SignalHandler) closePartialPosition(pct float64, force bool) error {
 		return err
 	}
 
-	oid, err := h.exch.LimitOrder(h.sym, offsetSide, px, size, false, false)
+	oid, err := h.exch.LimitOrder(h.sym, offsetSide, px, size, false, false, true)
 	if err != nil {
 		return err
 	}
@@ -408,7 +408,7 @@ func (h SignalHandler) followUpLimitOrder(oid string) {
 		return
 	}
 
-	oid2, err := h.exch.MarketOrder(od.Pair.Name, od.Side, nil, &od.RemainingSize)
+	oid2, err := h.exch.MarketOrder(od.Pair.Name, od.Side, nil, &od.RemainingSize, false)
 	h.log.Infof("limit-order:%s market-order:%s size:%v err:%v",
 		oid, oid2, od.RemainingSize, err)
 }

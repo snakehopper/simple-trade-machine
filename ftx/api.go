@@ -129,9 +129,9 @@ func (a Api) GetPair(sym string) (*data.Pair, error) {
 	return &p, nil
 }
 
-func (a Api) LimitOrder(sym string, side data.Side, px float64, qty float64, ioc bool, postOnly bool) (string, error) {
+func (a Api) LimitOrder(sym string, side data.Side, px float64, qty float64, ioc, postOnly, reduceOnly bool) (string, error) {
 	size := math.Abs(qty)
-	resp, err := a.PlaceOrder(sym, strings.ToLower(string(side)), px, "limit", size, false, false, false)
+	resp, err := a.PlaceOrder(sym, strings.ToLower(string(side)), px, "limit", size, reduceOnly, ioc, postOnly)
 	if err != nil {
 		a.log.Infof("place limit order error: %v", err)
 		return "", err
@@ -142,7 +142,7 @@ func (a Api) LimitOrder(sym string, side data.Side, px float64, qty float64, ioc
 	return fmt.Sprint(resp.Result.ID), nil
 }
 
-func (a Api) MarketOrder(sym string, side data.Side, quoteUnit *float64, qty *float64) (string, error) {
+func (a Api) MarketOrder(sym string, side data.Side, quoteUnit *float64, qty *float64, reduceOnly bool) (string, error) {
 	var size float64
 	if qty != nil {
 		size = math.Abs(*qty)
@@ -156,7 +156,7 @@ func (a Api) MarketOrder(sym string, side data.Side, quoteUnit *float64, qty *fl
 		return "", fmt.Errorf("either px or qty should defined")
 	}
 	resp, err := a.PlaceOrder(sym, strings.ToLower(string(side)), 0, "market", size,
-		false, true, false)
+		reduceOnly, true, false)
 	if err != nil {
 		a.log.Infof("place market order error: %v", err)
 		return "", err

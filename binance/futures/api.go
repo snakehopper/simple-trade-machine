@@ -120,7 +120,7 @@ func (a Api) GetPosition(sym string) (float64, error) {
 	return pos.PositionAmt, nil
 }
 
-func (a Api) LimitOrder(sym string, side data.Side, px float64, qty float64, ioc bool, _postOnly bool) (string, error) {
+func (a Api) LimitOrder(sym string, side data.Side, px float64, qty float64, ioc, _postOnly, reduceOnly bool) (string, error) {
 	exch, err := a.ExchangeInfo()
 	if err != nil {
 		return "", err
@@ -133,6 +133,11 @@ func (a Api) LimitOrder(sym string, side data.Side, px float64, qty float64, ioc
 		v.Set("timeInForce", "IOC")
 	} else {
 		v.Set("timeInForce", "GTC")
+	}
+	if reduceOnly {
+		v.Set("reduceOnly", "true")
+	} else {
+		v.Set("reduceOnly", "false")
 	}
 	rounded := exch.RoundLotSize(sym, math.Abs(qty))
 	if rounded == 0 {
@@ -167,7 +172,7 @@ func (a Api) LimitOrder(sym string, side data.Side, px float64, qty float64, ioc
 	return strconv.Itoa(out.OrderId), nil
 }
 
-func (a Api) MarketOrder(sym string, side data.Side, quoteQty *float64, baseQty *float64) (string, error) {
+func (a Api) MarketOrder(sym string, side data.Side, quoteQty *float64, baseQty *float64, reduceOnly bool) (string, error) {
 	exch, err := a.ExchangeInfo()
 	if err != nil {
 		return "", err
@@ -177,6 +182,12 @@ func (a Api) MarketOrder(sym string, side data.Side, quoteQty *float64, baseQty 
 	v.Set("side", strings.ToUpper(string(side)))
 	v.Set("symbol", sym)
 	v.Set("type", "MARKET")
+
+	if reduceOnly {
+		v.Set("reduceOnly", "true")
+	} else {
+		v.Set("reduceOnly", "false")
+	}
 
 	if baseQty != nil {
 		rounded := exch.RoundLotSize(sym, math.Abs(*baseQty))

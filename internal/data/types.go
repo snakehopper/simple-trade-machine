@@ -17,8 +17,8 @@ type Exchange interface {
 	//GetPosition return signed position
 	GetPosition(sym string) (float64, error)
 
-	LimitOrder(sym string, side Side, px float64, qty float64, ioc bool, postOnly bool) (string, error)
-	MarketOrder(sym string, side Side, px *float64, qty *float64) (string, error)
+	LimitOrder(sym string, side Side, px float64, qty float64, ioc bool, postOnly bool, reduceOnly bool) (string, error)
+	MarketOrder(sym string, side Side, px *float64, qty *float64, reduceOnly bool) (string, error)
 	GetOrder(sym, oid string) (*OrderStatus, error)
 	CancelOrder(sym, oid string) error
 }
