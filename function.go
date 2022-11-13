@@ -78,6 +78,10 @@ func alertHandler(w http.ResponseWriter, r *http.Request) {
 		err = h.shortPosition()
 	case REDUCE:
 		err = h.reducePosition()
+	case RAISE_LONG:
+		err = h.raiseIfAnyPosition(data.Buy)
+	case RAISE_SHORT:
+		err = h.raiseIfAnyPosition(data.Sell)
 	case CLOSE_LONG:
 		err = h.closeIfAnyPositionNow(data.Buy)
 	case CLOSE_SHORT:
@@ -176,6 +180,55 @@ func (h SignalHandler) floatFromEnv(k string) float64 {
 	}
 
 	return viper.GetFloat64(k)
+}
+
+func (h SignalHandler) openPositionPct(side data.Side, pct float64) error {
+	market, err := h.exch.GetMarket(h.sym)
+	if err != nil {
+		return err
+	}
+
+	_, free, err := h.exch.MaxQuoteValue(h.sym)
+	if err != nil {
+		return nil
+	}
+
+	px, err := h.bestQuotePrice(side)
+	if err != nil {
+		return err
+	}
+
+	pos, err := h.exch.GetPosition(h.sym)
+	if err != nil {
+		return err
+	}
+
+	orderSize := pos * (pct / 100)
+	orderUsd := orderSize * px
+	h.log.Infof("Position(%s):%v orderSize:%v", h.sym, pos, orderSize)
+
+	if freeUsd := free * 0.95; freeUsd < orderUsd {
+		h.log.Infof("low collateral, trim notional %v -> %v", orderUsd, freeUsd)
+		orderUsd = freeUsd
+	}
+
+	if orderUsd < market.MinNotional {
+		h.log.Infof("order size too small (%v < %v), skip %v action", orderUsd, market.MinNotional, side)
+		return nil
+	}
+
+	if h.GetOrderType() == data.MarketOrder {
+		_, err = h.exch.MarketOrder(h.sym, side, nil, &orderSize, false)
+		return err
+	}
+
+	oid, err := h.exch.LimitOrder(h.sym, side, px, orderSize, false, false, false)
+	if err != nil {
+		return err
+	}
+
+	go h.followUpLimitOrder(oid)
+	return nil
 }
 
 func (h SignalHandler) openPosition(side data.Side) error {
@@ -293,6 +346,22 @@ func (h SignalHandler) reducePosition() error {
 	var err error
 	for i := 0; i < 3; i++ {
 		if err = h.closePartialPosition(pct, false); err == nil {
+			return nil
+		}
+		h.log.Infof("#%d err:%v wait a second and retry", i, err)
+		time.Sleep(3 * time.Second)
+	}
+	return err
+}
+
+func (h SignalHandler) raiseIfAnyPosition(holding data.Side) error {
+	pct, err := h.sig.RaisePct()
+	if err != nil {
+		return err
+	}
+
+	for i := 0; i < 3; i++ {
+		if err = h.openPositionPct(holding, pct); err == nil {
 			return nil
 		}
 		h.log.Infof("#%d err:%v wait a second and retry", i, err)

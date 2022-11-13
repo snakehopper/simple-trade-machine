@@ -17,9 +17,12 @@ const (
 	CLOSE_LONG
 	CLOSE_SHORT
 	STOP_LOSS
+	RAISE_LONG
+	RAISE_SHORT
 
 	CounterTrading  Strategy = "COUNTER"
 	TrendFollowing  Strategy = "TREND"
+	DoublePlay      Strategy = "DOUBLEPLAY"
 	UnknownStrategy Strategy = "UnKNOwn"
 )
 
@@ -88,6 +91,16 @@ func (s Signal) ReducePct() (float64, error) {
 	pct := regexp.MustCompilePOSIX(`([0-9]*[.])?[0-9]+`).FindString(s.message.Signal)
 	return strconv.ParseFloat(pct, 64)
 }
+
+func (s Signal) RaisePct() (float64, error) {
+	if s.Action != RAISE_SHORT && s.Action != RAISE_LONG {
+		return 0, fmt.Errorf("not RAISE action")
+	}
+
+	pct := regexp.MustCompilePOSIX(`([0-9]*[.])?[0-9]+`).FindString(s.message.Signal)
+	return strconv.ParseFloat(pct, 64)
+}
+
 func parseAction(msg string) (Action, error) {
 	switch msg {
 	case "空轉多訊號", "多方訊號":
@@ -107,6 +120,10 @@ func parseAction(msg string) (Action, error) {
 		switch {
 		case strings.HasPrefix(msg, "多方減倉"), strings.HasPrefix(msg, "空方減倉"):
 			return REDUCE, nil
+		case strings.HasPrefix(msg, "多方加倉"):
+			return RAISE_LONG, nil
+		case strings.HasPrefix(msg, "空方加倉"):
+			return RAISE_SHORT, nil
 		}
 		return UnknownSignal, fmt.Errorf("unknown alert:%v len:%d\n", msg, len(msg))
 	}
@@ -118,6 +135,8 @@ func parseStrategy(msg string) Strategy {
 		return CounterTrading
 	case "順勢指標", "順勢減倉":
 		return TrendFollowing
+	case "兩手策略":
+		return DoublePlay
 	default:
 		return UnknownStrategy
 	}

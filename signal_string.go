@@ -15,11 +15,13 @@ func _() {
 	_ = x[CLOSE_LONG-4]
 	_ = x[CLOSE_SHORT-5]
 	_ = x[STOP_LOSS-6]
+	_ = x[RAISE_LONG-7]
+	_ = x[RAISE_SHORT-8]
 }
 
-const _Action_name = "UnknownSignalLONGSHORTREDUCECLOSE_LONGCLOSE_SHORTSTOP_LOSS"
+const _Action_name = "UnknownSignalLONGSHORTREDUCECLOSE_LONGCLOSE_SHORTSTOP_LOSSRAISE_LONGRAISE_SHORT"
 
-var _Action_index = [...]uint8{0, 13, 17, 22, 28, 38, 49, 58}
+var _Action_index = [...]uint8{0, 13, 17, 22, 28, 38, 49, 58, 68, 79}
 
 func (i Action) String() string {
 	if i < 0 || i >= Action(len(_Action_index)-1) {
