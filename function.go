@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"io/ioutil"
+	"math"
 	"net/http"
 	"net/url"
 	"os"
@@ -204,7 +205,7 @@ func (h SignalHandler) openPositionPct(side data.Side, pct float64) error {
 	}
 
 	orderSize := pos * (pct / 100)
-	orderUsd := orderSize * px
+	orderUsd := math.Abs(orderSize * px)
 	h.log.Infof("Position(%s):%v orderSize:%v", h.sym, pos, orderSize)
 
 	if freeUsd := free * 0.95; freeUsd < orderUsd {
@@ -276,10 +277,7 @@ func (h SignalHandler) openPosition(side data.Side) error {
 }
 
 func (h SignalHandler) closeIfAnyPositionNow(holding data.Side) error {
-	pos, err := h.exch.GetPosition(h.sym)
-	if err != nil {
-		return err
-	}
+	pos, _ := h.exch.GetPosition(h.sym)
 	switch holding {
 	case data.Buy:
 		if pos > 0 {
